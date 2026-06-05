@@ -5,6 +5,14 @@
   functions = "netlify/functions"
   command = ""                         # no build step
 
+# Netlify's secret scanner flags SUPABASE_URL because it also (correctly)
+# appears in the public assets/config.js. The Supabase URL + anon key are
+# meant to be public — Row Level Security protects the data — so we tell the
+# scanner these keys are intentionally exposed. The real secret
+# (SUPABASE_SERVICE_ROLE_KEY) is NOT in any published file and is still scanned.
+[build.environment]
+  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_URL,SUPABASE_ANON_KEY"
+
 [functions]
   node_bundler = "esbuild"
 
