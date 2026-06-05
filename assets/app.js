@@ -176,13 +176,20 @@ $("#auth-submit").addEventListener("click", async () => {
 
 $("#logout").addEventListener("click", () => sb.auth.signOut());
 
-sb.auth.onAuthStateChange(async (_evt, session) => {
+let entering = false;
+// Show the app shell FIRST, then load data — so a slow/aborted request on
+// reload can never leave the page blank. Guarded so it runs once.
+async function enterApp(user) {
+  showApp();
+  state.user = user;
+  try { await ensureProfile(); } catch (e) { console.warn("profile:", e?.message); }
+  try { await loadAll(); } catch (e) { console.warn("loadAll:", e?.message); }
+}
+sb.auth.onAuthStateChange((_evt, session) => {
   if (session?.user) {
-    state.user = session.user;
-    await ensureProfile();
-    showApp();
-    await loadAll();
+    if (!entering) { entering = true; enterApp(session.user); }
   } else {
+    entering = false;
     state.user = null;
     showAuth();
   }
@@ -929,5 +936,9 @@ function emptyState() {
 // ---------- إقلاع ----------
 (async () => {
   const { data } = await sb.auth.getSession();
-  if (!data.session) showAuth();
+  if (data.session?.user) {
+    if (!entering) { entering = true; enterApp(data.session.user); }
+  } else {
+    showAuth();
+  }
 })();
