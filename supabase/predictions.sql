@@ -190,10 +190,10 @@ begin
     join finished f on f.id = p.match_id
   ),
   per_match as (
-    select user_id,
+    select scored.user_id,
            count(*) filter (where is_exact)  as exact_count,
            count(*) filter (where is_result) as result_count
-    from scored group by user_id
+    from scored group by scored.user_id
   ),
   -- ---- bonus (champion / finalists / semifinalists) ----
   per_bonus as (
@@ -273,7 +273,9 @@ begin
   left join per_group   pg on pg.user_id = pr.id
   left join per_third   pt on pt.user_id = pr.id
   left join per_bracket pk on pk.user_id = pr.id
-  order by total_points desc, coalesce(pm.exact_count,0) desc, pr.display_name asc;
+  -- positional ordering (col 10 = total_points, 3 = exact_count, 2 = display_name)
+  -- avoids any OUT-parameter name ambiguity.
+  order by 10 desc, 3 desc, 2 asc;
 end;
 $$;
 

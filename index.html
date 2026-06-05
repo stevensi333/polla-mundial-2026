@@ -1,16 +1,17 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Family World Cup 2026 — Predictions</title>
+  <title>كأس العالم العائلية 2026 — التوقعات</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700;900&family=Archivo:wght@400;500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&display=swap"
     rel="stylesheet"
   />
   <link rel="stylesheet" href="./assets/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
   <script src="./assets/config.js"></script>
 </head>
 <body>
@@ -20,30 +21,30 @@
   <main id="auth-view" class="auth hidden">
     <div class="auth-card">
       <div class="brand">
-        <span class="brand-kicker">2026 · USA · CANADA · MEXICO</span>
-        <h1 class="brand-title">FAMILY<br /><em>WORLD&nbsp;CUP</em></h1>
-        <p class="brand-sub">7 predictions. One champion. Bragging rights all summer.</p>
+        <span class="brand-kicker">2026 · أمريكا · كندا · المكسيك</span>
+        <h1 class="brand-title">كأس العالم<br /><em>العائلية</em></h1>
+        <p class="brand-sub">توقّعات للعائلة. بطلٌ واحد. وافتخارٌ طوال الصيف.</p>
       </div>
 
       <div class="seg">
-        <button class="seg-btn active" data-mode="login">Log in</button>
-        <button class="seg-btn" data-mode="signup">Sign up</button>
+        <button class="seg-btn active" data-mode="login">تسجيل الدخول</button>
+        <button class="seg-btn" data-mode="signup">حساب جديد</button>
       </div>
 
       <div class="field" id="name-field" style="display:none">
-        <label>Your name</label>
-        <input id="display-name" type="text" autocomplete="name" placeholder="e.g. Omar" />
+        <label>اسمك</label>
+        <input id="display-name" type="text" autocomplete="name" placeholder="مثال: عمر" />
       </div>
       <div class="field">
-        <label>Email</label>
+        <label>البريد الإلكتروني</label>
         <input id="email" type="email" autocomplete="email" placeholder="you@example.com" />
       </div>
       <div class="field">
-        <label>Password</label>
+        <label>كلمة المرور</label>
         <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" />
       </div>
 
-      <button id="auth-submit" class="btn-primary">Log in</button>
+      <button id="auth-submit" class="btn-primary">تسجيل الدخول</button>
       <p id="auth-msg" class="msg"></p>
     </div>
   </main>
@@ -53,21 +54,21 @@
     <header class="topbar">
       <div class="topbar-brand">
         <span class="dot"></span>
-        <span>Family World Cup <strong>’26</strong></span>
+        <span>كأس العالم العائلية <strong>٢٦</strong></span>
       </div>
       <div class="topbar-right">
         <span id="who" class="who"></span>
-        <button id="logout" class="btn-ghost">Log out</button>
+        <button id="logout" class="btn-ghost">خروج</button>
       </div>
     </header>
 
     <nav class="tabs">
-      <button class="tab active" data-tab="groups">Group Stage</button>
-      <button class="tab" data-tab="knockouts">Knockouts</button>
-      <button class="tab" data-tab="picks">Group Picks</button>
-      <button class="tab" data-tab="bonus">Bonus Picks</button>
-      <button class="tab" data-tab="info">Groups &amp; Schedule</button>
-      <button class="tab" data-tab="board">Leaderboard</button>
+      <button class="tab active" data-tab="groups">دور المجموعات</button>
+      <button class="tab" data-tab="knockouts">الأدوار الإقصائية</button>
+      <button class="tab" data-tab="picks">ترتيب المجموعات</button>
+      <button class="tab" data-tab="bonus">توقعات إضافية</button>
+      <button class="tab" data-tab="info">المجموعات والجدول</button>
+      <button class="tab" data-tab="board">الترتيب العام</button>
     </nav>
 
     <section id="tab-groups" class="panel"></section>
@@ -78,9 +79,9 @@
     <section id="tab-board" class="panel hidden"></section>
 
     <footer class="foot">
-      Scoring: <b>2</b> pts exact score · <b>1</b> pt correct result ·
-      Bonus: champion <b>5</b>, finalist <b>3</b>, semifinalist <b>2</b>.
-      Picks lock at kickoff.
+      النقاط: <b>٢</b> للنتيجة الصحيحة بالضبط · <b>١</b> لتوقّع الفائز ·
+      الإضافية: البطل <b>٥</b>، صاحب النهائي <b>٣</b>، صاحب نصف النهائي <b>٢</b>.
+      تُقفل التوقعات عند انطلاق المباراة.
     </footer>
   </div>
 

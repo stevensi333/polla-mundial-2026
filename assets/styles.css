@@ -23,7 +23,7 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
 body {
-  font-family: "Archivo", system-ui, sans-serif;
+  font-family: "Cairo", system-ui, sans-serif;
   background:
     radial-gradient(1100px 600px at 80% -10%, rgba(47,224,138,.10), transparent 60%),
     radial-gradient(900px 500px at -10% 110%, rgba(246,201,69,.07), transparent 55%),
@@ -63,7 +63,7 @@ em { font-style: normal; }
   font-weight: 600;
 }
 .brand-title {
-  font-family: "Unbounded", sans-serif; font-weight: 900;
+  font-family: "Cairo", sans-serif; font-weight: 900;
   font-size: clamp(38px, 9vw, 56px); line-height: .92; margin: 8px 0 10px;
   letter-spacing: -.01em;
 }
@@ -113,7 +113,7 @@ em { font-style: normal; }
   padding: 20px 4px 16px;
 }
 .topbar-brand {
-  font-family: "Unbounded", sans-serif; font-weight: 700; font-size: 17px;
+  font-family: "Cairo", sans-serif; font-weight: 700; font-size: 17px;
   display: flex; align-items: center; gap: 10px;
 }
 .topbar-brand strong { color: var(--gold); }
@@ -155,7 +155,7 @@ em { font-style: normal; }
   padding: 14px 16px; cursor: pointer; user-select: none;
 }
 .group-head h3 {
-  margin: 0; font-family: "Unbounded", sans-serif; font-size: 15px; font-weight: 700;
+  margin: 0; font-family: "Cairo", sans-serif; font-size: 15px; font-weight: 700;
 }
 .group-head .chev { color: var(--muted); transition: .2s; }
 .group.collapsed .group-body { display: none; }
@@ -214,7 +214,7 @@ em { font-style: normal; }
   border: 1px solid var(--line-soft); border-radius: var(--radius);
   padding: 16px; background: rgba(15,38,27,.5);
 }
-.bonus-card h4 { margin: 0 0 4px; font-family:"Unbounded",sans-serif; font-size: 14px; }
+.bonus-card h4 { margin: 0 0 4px; font-family:"Cairo",sans-serif; font-size: 14px; }
 .bonus-card .hint { color: var(--muted); font-size: 12px; margin: 0 0 10px; }
 .bonus-row { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
 select.pick {
@@ -232,12 +232,12 @@ select.pick:disabled { opacity: .75; }
 }
 .row:first-child { border-top: 0; }
 .row.me { background: rgba(47,224,138,.06); }
-.rank { font-family: "Unbounded", sans-serif; font-weight: 900; font-size: 20px; color: var(--muted); }
+.rank { font-family: "Cairo", sans-serif; font-weight: 900; font-size: 20px; color: var(--muted); }
 .row:nth-child(1) .rank { color: var(--gold); }
 .name { font-weight: 600; }
 .name small { display: block; color: var(--muted); font-weight: 400; font-size: 11.5px; margin-top: 2px; }
-.total { font-family: "Unbounded", sans-serif; font-weight: 700; font-size: 22px; color: var(--gold); }
-.total span { font-size: 12px; color: var(--muted); font-family: "Archivo"; }
+.total { font-family: "Cairo", sans-serif; font-weight: 700; font-size: 22px; color: var(--gold); }
+.total span { font-size: 12px; color: var(--muted); font-family: "Cairo"; }
 
 .empty { text-align: center; color: var(--muted); padding: 40px 16px; font-size: 14px; }
 .note { color: var(--muted); font-size: 13px; margin: 0 4px 16px; }
@@ -261,12 +261,42 @@ select.pick:disabled { opacity: .75; }
 .gtable tr.qual td { background: rgba(47,224,138,.05); }
 
 /* ---- Group Picks (order + best thirds) + knockout advance ---- */
-.sec { font-family: "Unbounded", sans-serif; font-size: 14px; margin: 22px 4px 12px; }
+.sec { font-family: "Cairo", sans-serif; font-size: 14px; margin: 22px 4px 12px; }
 .picks-grid { grid-template-columns: 1fr 1fr; }
 .order-rows { display: grid; gap: 8px; }
 .order-rows label { display: grid; grid-template-columns: 24px 1fr; align-items: center; gap: 10px; }
-.order-rows .ord { font-family: "Unbounded", sans-serif; font-weight: 800; color: var(--muted); text-align: center; }
+.order-rows .ord { font-family: "Cairo", sans-serif; font-weight: 800; color: var(--muted); text-align: center; }
 .thirds-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* drag-and-drop group order */
+.dnd { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.dnd li {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  background: var(--ink); border: 1px solid var(--line); border-radius: 12px;
+  cursor: grab; user-select: none; touch-action: none;
+}
+.dnd li:active { cursor: grabbing; }
+.dnd li .ord { font-family: "Cairo", sans-serif; font-weight: 800; color: var(--green); min-width: 20px; text-align: center; }
+.dnd li .tname { flex: 1; font-weight: 600; }
+.dnd li .handle { color: var(--muted); font-size: 18px; }
+.dnd.locked li { cursor: default; }
+.sortable-ghost { opacity: .35; }
+.sortable-chosen { border-color: var(--green); box-shadow: 0 0 0 3px rgba(47,224,138,.12); }
+.group-locked { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--gold); background: var(--gold-soft); padding: 3px 9px; border-radius: 999px; }
+.group-done { font-size: 11px; font-weight: 700; color: var(--green); }
+.dnd li .ok { color: var(--gold); font-weight: 800; }
+
+/* third-place chips (chosen from your predicted 3rd-place teams) */
+.thirds-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.tchip {
+  display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--ink);
+  color: var(--text); font-size: 13px; font-weight: 600; transition: .15s;
+}
+.tchip.sel { border-color: var(--green); background: rgba(47,224,138,.14); color: var(--green); }
+.tchip:disabled { opacity: .4; cursor: default; }
+.tchip .crest { width: 18px; height: 18px; }
+.thirds-count { font-size: 12px; color: var(--muted); margin: 0 4px 10px; }
 
 .advrow { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
 .advlbl { font-size: 11px; color: var(--muted); }
@@ -280,7 +310,7 @@ select.pick:disabled { opacity: .75; }
 
 .sday { margin-bottom: 18px; }
 .sday-head {
-  font-family: "Unbounded", sans-serif; font-size: 13px; font-weight: 700;
+  font-family: "Cairo", sans-serif; font-size: 13px; font-weight: 700;
   color: var(--green); padding: 4px 4px 10px; position: sticky; top: 0;
 }
 .srow {

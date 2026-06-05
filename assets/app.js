@@ -1,24 +1,53 @@
 // =====================================================================
-//  Family World Cup 2026 — front-end app logic
-//  Uses Supabase (Auth + Postgres) directly from the browser.
-//  Row Level Security in the database enforces all the rules; the anon
-//  key here is public on purpose.
+//  كأس العالم العائلية 2026 — منطق الواجهة الأمامية (عربي / RTL)
+//  يتصل المتصفح مباشرة بـ Supabase. أمان الصفوف (RLS) في قاعدة البيانات
+//  هو ما يحمي البيانات فعليًا، ومفتاح anon هنا عامٌّ عن قصد.
 // =====================================================================
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cfg = window.APP_CONFIG || {};
 if (!cfg.SUPABASE_URL || cfg.SUPABASE_URL.includes("YOUR-PROJECT")) {
-  alert("Open assets/config.js and add your Supabase URL + anon key first.");
+  alert("افتح assets/config.js وأضف رابط Supabase ومفتاح anon أولًا.");
 }
 const sb = createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
 
+// أسماء الأدوار بالعربية
 const STAGE_LABEL = {
-  LAST_32: "Round of 32", LAST_16: "Round of 16", QUARTER_FINALS: "Quarter-finals",
-  SEMI_FINALS: "Semi-finals", THIRD_PLACE: "Third place", FINAL: "Final",
+  LAST_32: "دور الـ32", LAST_16: "دور الـ16", QUARTER_FINALS: "ربع النهائي",
+  SEMI_FINALS: "نصف النهائي", THIRD_PLACE: "تحديد المركز الثالث", FINAL: "النهائي",
 };
 const STAGE_ORDER = ["LAST_32", "LAST_16", "QUARTER_FINALS", "SEMI_FINALS", "THIRD_PLACE", "FINAL"];
 const isKnockout = (m) => m.stage && m.stage !== "GROUP_STAGE";
-const stageLabel = (s) => STAGE_LABEL[s] || String(s).replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+const stageLabel = (s) => STAGE_LABEL[s] || String(s).replace(/_/g, " ");
+const grpName = (g) => (g ? String(g).replace(/Group/i, "المجموعة") : g);
+
+// أسماء المنتخبات بالعربية (يُستخدم الاسم الأصلي إن لم يوجد)
+const AR_TEAM = {
+  "Argentina":"الأرجنتين","Brazil":"البرازيل","France":"فرنسا","England":"إنجلترا","Spain":"إسبانيا",
+  "Germany":"ألمانيا","Portugal":"البرتغال","Netherlands":"هولندا","Belgium":"بلجيكا","Italy":"إيطاليا",
+  "Croatia":"كرواتيا","Uruguay":"الأوروغواي","Mexico":"المكسيك","United States":"الولايات المتحدة",
+  "USA":"الولايات المتحدة","Canada":"كندا","Japan":"اليابان","South Korea":"كوريا الجنوبية",
+  "Korea Republic":"كوريا الجنوبية","Australia":"أستراليا","Morocco":"المغرب","Senegal":"السنغال",
+  "Ghana":"غانا","Nigeria":"نيجيريا","Cameroon":"الكاميرون","Egypt":"مصر","Tunisia":"تونس",
+  "Algeria":"الجزائر","Saudi Arabia":"السعودية","Qatar":"قطر","Iran":"إيران","IR Iran":"إيران",
+  "Iraq":"العراق","United Arab Emirates":"الإمارات","Jordan":"الأردن","Oman":"عُمان","Kuwait":"الكويت",
+  "Bahrain":"البحرين","Palestine":"فلسطين","Lebanon":"لبنان","Syria":"سوريا","Switzerland":"سويسرا",
+  "Denmark":"الدنمارك","Sweden":"السويد","Norway":"النرويج","Poland":"بولندا","Serbia":"صربيا",
+  "Czechia":"التشيك","Czech Republic":"التشيك","Austria":"النمسا","Wales":"ويلز","Scotland":"اسكتلندا",
+  "Republic of Ireland":"أيرلندا","Ireland":"أيرلندا","Ukraine":"أوكرانيا","Turkey":"تركيا",
+  "Türkiye":"تركيا","Greece":"اليونان","Colombia":"كولومبيا","Chile":"تشيلي","Peru":"بيرو",
+  "Ecuador":"الإكوادور","Paraguay":"باراغواي","Venezuela":"فنزويلا","Bolivia":"بوليفيا",
+  "Costa Rica":"كوستاريكا","Panama":"بنما","Jamaica":"جامايكا","Honduras":"هندوراس","Haiti":"هايتي",
+  "South Africa":"جنوب أفريقيا","Ivory Coast":"ساحل العاج","Côte d'Ivoire":"ساحل العاج",
+  "Cote d'Ivoire":"ساحل العاج","Mali":"مالي","Cape Verde":"الرأس الأخضر","DR Congo":"الكونغو الديمقراطية",
+  "New Zealand":"نيوزيلندا","Uzbekistan":"أوزبكستان","Curaçao":"كوراساو","Curacao":"كوراساو",
+  "Slovakia":"سلوفاكيا","Slovenia":"سلوفينيا","Hungary":"المجر","Romania":"رومانيا","Russia":"روسيا",
+  "Finland":"فنلندا","Iceland":"آيسلندا","Albania":"ألبانيا","Bosnia and Herzegovina":"البوسنة والهرسك",
+  "North Macedonia":"مقدونيا الشمالية","Montenegro":"الجبل الأسود","Georgia":"جورجيا","Israel":"إسرائيل",
+  "Indonesia":"إندونيسيا","Thailand":"تايلاند","China PR":"الصين","China":"الصين","India":"الهند",
+};
+const teamName = (t) => (t ? (AR_TEAM[t] || t) : "غير محدد");
+const tn = (t) => esc(teamName(t));
 
 const state = {
   user: null, profile: null,
@@ -27,40 +56,47 @@ const state = {
   bonus: null, names: new Map(), authMode: "login",
   groupPreds: new Map(), thirdPred: { teams: [] },
   bracketPreds: new Map(), bracketOthers: new Map(),
+  crests: new Map(), groupToggle: new Map(),
 };
 
-// ---------- tiny helpers ----------
+// ---------- أدوات صغيرة ----------
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const isLocked = (m) => new Date(m.kickoff).getTime() <= Date.now();
 const bonusLocked = () => state.config?.bonus_locks_at && new Date(state.config.bonus_locks_at).getTime() <= Date.now();
+const crestFor = (t) => state.crests.get(t) || null;
+const flagImg = (t, cls = "crest") => {
+  const u = crestFor(t);
+  return u ? `<img class="${cls}" src="${esc(u)}" alt="" onerror="this.style.visibility='hidden'"/>` : `<span class="${cls}"></span>`;
+};
+
+// ---- وقت السعودية (Asia/Riyadh = UTC+3) + تاريخ بالعربية ----
+const SA_TZ = "Asia/Riyadh";
+const AR = "ar";
+const saDateKey = (iso) => new Date(iso).toLocaleDateString("en-CA", { timeZone: SA_TZ }); // YYYY-MM-DD
+const fmtSADate = (iso) =>
+  new Date(iso).toLocaleDateString(AR, { timeZone: SA_TZ, calendar: "gregory", numberingSystem: "latn", weekday: "long", day: "numeric", month: "long" });
+const fmtSATime = (iso) =>
+  new Date(iso).toLocaleTimeString(AR, { timeZone: SA_TZ, calendar: "gregory", numberingSystem: "latn", hour: "2-digit", minute: "2-digit" });
 function fmtKick(iso) {
-  return new Date(iso).toLocaleString(undefined, {
+  return new Date(iso).toLocaleString(AR, {
+    timeZone: SA_TZ, calendar: "gregory", numberingSystem: "latn",
     weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
   });
 }
 
-// ---- Saudi Arabia time (Asia/Riyadh, UTC+3) ----
-const SA_TZ = "Asia/Riyadh";
-const saDateKey = (iso) => new Date(iso).toLocaleDateString("en-CA", { timeZone: SA_TZ }); // YYYY-MM-DD
-const fmtSADate = (iso) =>
-  new Date(iso).toLocaleDateString(undefined, { timeZone: SA_TZ, weekday: "long", day: "numeric", month: "long" });
-const fmtSATime = (iso) =>
-  new Date(iso).toLocaleTimeString(undefined, { timeZone: SA_TZ, hour: "2-digit", minute: "2-digit" });
-
-// Live group standings computed from finished group matches.
+// جدول المجموعة محسوبًا من المباريات المنتهية
 function groupStandings(groupName) {
   const ms = state.matches.filter((m) => m.stage === "GROUP_STAGE" && m.grp === groupName);
   const table = new Map();
-  const crests = new Map();
   const ensure = (t) => {
     if (!table.has(t)) table.set(t, { team: t, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 });
     return table.get(t);
   };
   ms.forEach((m) => {
-    if (m.home_team) { ensure(m.home_team); if (m.home_crest) crests.set(m.home_team, m.home_crest); }
-    if (m.away_team) { ensure(m.away_team); if (m.away_crest) crests.set(m.away_team, m.away_crest); }
+    if (m.home_team) ensure(m.home_team);
+    if (m.away_team) ensure(m.away_team);
     if (m.status === "FINISHED" && m.home_score != null && m.away_score != null) {
       const h = ensure(m.home_team), a = ensure(m.away_team);
       h.p++; a.p++;
@@ -71,10 +107,9 @@ function groupStandings(groupName) {
       else { h.d++; a.d++; h.pts++; a.pts++; }
     }
   });
-  const rows = [...table.values()].sort(
+  return [...table.values()].sort(
     (x, y) => y.pts - x.pts || (y.gf - y.ga) - (x.gf - x.ga) || y.gf - x.gf || x.team.localeCompare(y.team)
   );
-  return { rows, crests };
 }
 function toast(msg, isErr = false) {
   const t = $("#toast");
@@ -91,17 +126,18 @@ function pointsFor(pred, m) {
 }
 
 // =====================================================================
-//  AUTH
+//  تسجيل الدخول
 // =====================================================================
 function showAuth() { $("#auth-view").classList.remove("hidden"); $("#app-view").classList.add("hidden"); }
 function showApp() { $("#auth-view").classList.add("hidden"); $("#app-view").classList.remove("hidden"); }
 
 $$(".seg-btn").forEach((b) =>
   b.addEventListener("click", () => {
+    if (!b.dataset.mode) return;
     state.authMode = b.dataset.mode;
     $$(".seg-btn").forEach((x) => x.classList.toggle("active", x === b));
     $("#name-field").style.display = state.authMode === "signup" ? "block" : "none";
-    $("#auth-submit").textContent = state.authMode === "signup" ? "Create account" : "Log in";
+    $("#auth-submit").textContent = state.authMode === "signup" ? "إنشاء حساب" : "تسجيل الدخول";
     $("#password").autocomplete = state.authMode === "signup" ? "new-password" : "current-password";
     $("#auth-msg").textContent = "";
   })
@@ -113,25 +149,25 @@ $("#auth-submit").addEventListener("click", async () => {
   const name = $("#display-name").value.trim();
   const msg = $("#auth-msg");
   msg.className = "msg"; msg.textContent = "";
-  if (!email || !password) { msg.className = "msg error"; msg.textContent = "Email and password required."; return; }
+  if (!email || !password) { msg.className = "msg error"; msg.textContent = "البريد وكلمة المرور مطلوبان."; return; }
 
   $("#auth-submit").disabled = true;
   try {
     if (state.authMode === "signup") {
-      if (!name) { throw new Error("Please enter your name."); }
+      if (!name) { throw new Error("الرجاء إدخال اسمك."); }
       const { data, error } = await sb.auth.signUp({ email, password });
       if (error) throw error;
       state._pendingName = name;
       if (!data.session) {
-        msg.textContent = "Account created. Check your email to confirm, then log in.";
-        return; // email confirmation is on
+        msg.textContent = "تم إنشاء الحساب. تحقّق من بريدك للتأكيد ثم سجّل الدخول.";
+        return;
       }
     } else {
       const { error } = await sb.auth.signInWithPassword({ email, password });
       if (error) throw error;
     }
   } catch (e) {
-    msg.className = "msg error"; msg.textContent = e.message || "Something went wrong.";
+    msg.className = "msg error"; msg.textContent = e.message || "حدث خطأ ما.";
   } finally {
     $("#auth-submit").disabled = false;
   }
@@ -161,7 +197,7 @@ async function ensureProfile() {
 }
 
 // =====================================================================
-//  DATA LOADING
+//  تحميل البيانات
 // =====================================================================
 async function loadAll() {
   $("#who").textContent = state.profile?.display_name || "";
@@ -171,10 +207,17 @@ async function loadAll() {
     sb.from("matches").select("*").order("kickoff", { ascending: true }),
     sb.from("profiles").select("id,display_name"),
   ]);
-  state.config = conf || { points_result: 1, points_exact: 2, points_champion: 5, points_finalist: 3, points_semifinalist: 2 };
+  state.config = conf || { points_result: 1, points_exact: 2, points_champion: 5, points_finalist: 3, points_semifinalist: 2, points_group_pos: 1, points_group_perfect: 3, points_third: 2, points_advance: 2 };
   state.results = res || {};
   state.matches = matches || [];
   state.names = new Map((profiles || []).map((p) => [p.id, p.display_name]));
+
+  // خريطة شعارات/أعلام لكل منتخب
+  state.crests = new Map();
+  state.matches.forEach((m) => {
+    if (m.home_team && m.home_crest) state.crests.set(m.home_team, m.home_crest);
+    if (m.away_team && m.away_crest) state.crests.set(m.away_team, m.away_crest);
+  });
 
   await loadPredictions();
   await loadBonus();
@@ -182,8 +225,7 @@ async function loadAll() {
   renderActiveTab();
 }
 
-// Group-order, best-thirds, and bracket picks. Fails soft if predictions.sql
-// hasn't been applied yet (tables missing) so the rest of the app still works.
+// توقعات الترتيب/الثوالث/الإقصائيات. يتعامل بهدوء إن لم تُطبّق predictions.sql بعد.
 async function loadExtraPreds() {
   const [gp, tp, bk] = await Promise.all([
     sb.from("group_predictions").select("user_id,grp,pos1,pos2,pos3,pos4").eq("user_id", state.user.id),
@@ -205,7 +247,6 @@ async function loadExtraPreds() {
 }
 
 async function loadPredictions() {
-  // RLS returns: all of MY picks + OTHERS' picks only for matches past kickoff.
   const { data } = await sb.from("predictions").select("match_id,user_id,home_score,away_score");
   state.myPreds = new Map();
   state.othersPreds = new Map();
@@ -225,7 +266,7 @@ async function loadBonus() {
 }
 
 // =====================================================================
-//  TABS
+//  التبويبات
 // =====================================================================
 $$(".tab").forEach((t) =>
   t.addEventListener("click", () => {
@@ -247,7 +288,7 @@ function renderActiveTab() {
 }
 
 // =====================================================================
-//  MATCH ROW (shared by group + knockout)
+//  صف المباراة (مشترك بين المجموعات والإقصائيات)
 // =====================================================================
 function matchRow(m, opts = {}) {
   const locked = isLocked(m);
@@ -257,31 +298,28 @@ function matchRow(m, opts = {}) {
   const hv = mine ? mine.home_score : "";
   const av = mine ? mine.away_score : "";
 
-  let statusPill = `<span class="pill open">Open</span>`;
-  if (live) statusPill = `<span class="pill live">● Live</span>`;
-  else if (finished) statusPill = `<span class="pill points">+${pointsFor(mine, m)} pts</span>`;
-  else if (locked) statusPill = `<span class="pill locked">Locked</span>`;
+  let statusPill = `<span class="pill open">مفتوحة</span>`;
+  if (live) statusPill = `<span class="pill live">● مباشر</span>`;
+  else if (finished) statusPill = `<span class="pill points">+${pointsFor(mine, m)} نقطة</span>`;
+  else if (locked) statusPill = `<span class="pill locked">مقفلة</span>`;
 
-  const crest = (url) => (url ? `<img class="crest" src="${esc(url)}" alt="" onerror="this.style.visibility='hidden'"/>` : `<span class="crest"></span>`);
-  const home = m.home_team || "TBD";
-  const away = m.away_team || "TBD";
   const disabled = locked ? "disabled" : "";
 
   let actual = "";
-  if (finished) actual = `<span class="actual">Final: <b>${m.home_score}–${m.away_score}</b></span>`;
-  else if (live && m.home_score != null) actual = `<span class="actual">Live: <b>${m.home_score}–${m.away_score}</b></span>`;
+  if (finished) actual = `<span class="actual">النتيجة: <b>${m.home_score}–${m.away_score}</b></span>`;
+  else if (live && m.home_score != null) actual = `<span class="actual">مباشر: <b>${m.home_score}–${m.away_score}</b></span>`;
 
-  // others' picks (only present after kickoff via RLS)
+  // توقعات الآخرين (تظهر بعد انطلاق المباراة فقط عبر RLS)
   let others = "";
   const list = state.othersPreds.get(m.id);
   if (locked && list?.length) {
     const chips = list
-      .map((p) => `<span class="chip"><b>${esc(state.names.get(p.user_id) || "?")}</b> ${p.home_score}–${p.away_score}</span>`)
+      .map((p) => `<span class="chip"><b>${esc(state.names.get(p.user_id) || "؟")}</b> ${p.home_score}–${p.away_score}</span>`)
       .join("");
-    others = `<div class="others">Picks: ${chips}</div>`;
+    others = `<div class="others">التوقعات: ${chips}</div>`;
   }
 
-  // "who advances" picker (knockouts only, both teams known)
+  // مَن يتأهل (للإقصائيات فقط، إذا عُرف الفريقان)
   let adv = "";
   if (opts.advance && m.home_team && m.away_team) {
     const mineAdv = state.bracketPreds.get(m.id);
@@ -291,24 +329,24 @@ function matchRow(m, opts = {}) {
     const advBtn = (team) => {
       const sel = mineAdv === team ? " sel" : "";
       const correct = actualAdv && actualAdv === team ? " correct" : "";
-      return `<button class="adv-btn${sel}${correct}" data-team="${esc(team)}" ${locked ? "disabled" : ""}>${esc(team)}</button>`;
+      return `<button class="adv-btn${sel}${correct}" data-team="${esc(team)}" ${locked ? "disabled" : ""}>${tn(team)}</button>`;
     };
-    adv = `<div class="advrow"><span class="advlbl">Advances:</span>${advBtn(m.home_team)}${advBtn(m.away_team)}</div>`;
+    adv = `<div class="advrow"><span class="advlbl">يتأهل:</span>${advBtn(m.home_team)}${advBtn(m.away_team)}</div>`;
   }
 
   return `
   <div class="match" data-id="${m.id}">
-    <div class="side home">${crest(m.home_crest)}<span class="tname">${esc(home)}</span></div>
+    <div class="side home">${flagImg(m.home_team)}<span class="tname">${tn(m.home_team)}</span></div>
     <div class="score-in">
       <input type="number" min="0" max="30" value="${hv}" data-side="home" ${disabled} inputmode="numeric"/>
       <span class="vs">:</span>
       <input type="number" min="0" max="30" value="${av}" data-side="away" ${disabled} inputmode="numeric"/>
     </div>
-    <div class="side away"><span class="tname">${esc(away)}</span>${crest(m.away_crest)}</div>
+    <div class="side away"><span class="tname">${tn(m.away_team)}</span>${flagImg(m.away_team)}</div>
     <div class="meta">
       <span class="kick">${fmtKick(m.kickoff)}</span>
       <span style="display:flex;gap:8px;align-items:center">
-        ${actual}<span class="saved-tag">Saved ✓</span>${statusPill}
+        ${actual}<span class="saved-tag">حُفظ ✓</span>${statusPill}
       </span>
     </div>
     ${adv}
@@ -316,7 +354,7 @@ function matchRow(m, opts = {}) {
   </div>`;
 }
 
-// wire the knockout "who advances" buttons
+// أزرار "مَن يتأهل" في الإقصائيات
 function wireAdvance(root) {
   $$(".match", root).forEach((row) => {
     const id = Number(row.dataset.id);
@@ -328,16 +366,16 @@ function wireAdvance(root) {
           .from("bracket_predictions")
           .upsert({ user_id: state.user.id, match_id: id, advance_team: team, updated_at: new Date().toISOString() },
                   { onConflict: "user_id,match_id" });
-        if (error) { toast("Locked — kickoff has passed.", true); return; }
+        if (error) { toast("مقفلة — انطلقت المباراة.", true); return; }
         state.bracketPreds.set(id, team);
         $$(".adv-btn", row).forEach((b) => b.classList.toggle("sel", b.dataset.team === team));
-        toast("Advance pick saved ✓");
+        toast("تم حفظ المتأهل ✓");
       })
     );
   });
 }
 
-// debounce-save a single match prediction
+// حفظ توقّع نتيجة مباراة (مع تأخير بسيط)
 function wireMatchInputs(root) {
   $$(".match", root).forEach((row) => {
     const id = Number(row.dataset.id);
@@ -356,61 +394,90 @@ function wireMatchInputs(root) {
             .from("predictions")
             .upsert({ user_id: state.user.id, match_id: id, home_score, away_score, updated_at: new Date().toISOString() },
                     { onConflict: "user_id,match_id" });
-          if (error) { toast("Locked — kickoff has passed.", true); return; }
+          if (error) { toast("مقفلة — انطلقت المباراة.", true); return; }
           state.myPreds.set(id, { match_id: id, user_id: state.user.id, home_score, away_score });
           tag.classList.add("show"); setTimeout(() => tag.classList.remove("show"), 1200);
+          maybeRevealNext(id);
         }, 550);
       })
     );
   });
 }
 
+// عند إكمال توقعات مجموعة، افتح المجموعة التالية تلقائيًا
+function maybeRevealNext(matchId) {
+  const m = state.matches.find((x) => x.id === matchId);
+  if (!m || m.stage !== "GROUP_STAGE") return;
+  const names = [...new Set(state.matches.filter((x) => x.stage === "GROUP_STAGE" && x.grp).map((x) => x.grp))].sort();
+  const idx = names.indexOf(m.grp);
+  if (idx < 0 || idx + 1 >= names.length) return;
+  const cur = names[idx];
+  const curMatches = state.matches.filter((x) => x.stage === "GROUP_STAGE" && x.grp === cur);
+  if (curMatches.every((x) => state.myPreds.has(x.id))) {
+    const next = names[idx + 1];
+    const wrap = $(`.group[data-grp="${cssAttr(next)}"]`);
+    if (wrap && !state.groupToggle.has(next)) wrap.classList.remove("collapsed");
+  }
+}
+const cssAttr = (s) => String(s).replace(/"/g, '\\"');
+
 // =====================================================================
-//  GROUP STAGE
+//  دور المجموعات
 // =====================================================================
+function groupComplete(matches) {
+  return matches.length > 0 && matches.every((m) => state.myPreds.has(m.id));
+}
 function renderGroups() {
   const el = $("#tab-groups");
   const groupMatches = state.matches.filter((m) => m.stage === "GROUP_STAGE");
   if (!groupMatches.length) { el.innerHTML = emptyState(); return; }
 
   const byGroup = {};
-  groupMatches.forEach((m) => { (byGroup[m.grp || "Group ?"] ??= []).push(m); });
+  groupMatches.forEach((m) => { (byGroup[m.grp || "؟"] ??= []).push(m); });
+  const names = Object.keys(byGroup).sort();
 
   el.innerHTML =
-    `<p class="note">Predict every group match. Each one locks at kickoff. Exact score = 2 pts, correct result = 1 pt.</p>` +
-    Object.keys(byGroup).sort().map((g) => {
-      const rows = byGroup[g].map(matchRow).join("");
-      return `<div class="group">
-        <div class="group-head"><h3>${esc(g)}</h3><span class="chev">▾</span></div>
+    `<p class="note">توقّع نتيجة كل مباراة. تُقفل المباراة عند انطلاقها. النتيجة الصحيحة بالضبط = ٢ نقطة، توقّع الفائز = ١. تُفتح المجموعة التالية تلقائيًا بعد إكمال توقعات المجموعة التي قبلها.</p>` +
+    names.map((g, idx) => {
+      const rows = byGroup[g].map((m) => matchRow(m)).join("");
+      const prevComplete = idx === 0 || groupComplete(byGroup[names[idx - 1]]);
+      const manual = state.groupToggle.get(g); // true=مفتوحة، false=مغلقة، undefined=تلقائي
+      const open = manual !== undefined ? manual : (idx === 0 || prevComplete);
+      const done = groupComplete(byGroup[g]) ? `<span class="group-done">✓ مكتملة</span>` : "";
+      return `<div class="group${open ? "" : " collapsed"}" data-grp="${esc(g)}">
+        <div class="group-head"><h3>${esc(grpName(g))} ${done}</h3><span class="chev">▾</span></div>
         <div class="group-body">${rows}</div>
       </div>`;
     }).join("");
 
   $$(".group-head", el).forEach((h) =>
-    h.addEventListener("click", () => h.parentElement.classList.toggle("collapsed"))
+    h.addEventListener("click", () => {
+      const wrap = h.parentElement;
+      wrap.classList.toggle("collapsed");
+      state.groupToggle.set(wrap.dataset.grp, !wrap.classList.contains("collapsed"));
+    })
   );
   wireMatchInputs(el);
 }
 
 // =====================================================================
-//  KNOCKOUTS
+//  الأدوار الإقصائية
 // =====================================================================
 function renderKnockouts() {
   const el = $("#tab-knockouts");
   const ko = state.matches.filter(isKnockout);
   if (!ko.length) {
-    el.innerHTML = `<div class="empty">The knockout bracket appears here automatically once the group stage finishes and the fixtures are set.</div>`;
+    el.innerHTML = `<div class="empty">تظهر الأدوار الإقصائية تلقائيًا بعد انتهاء دور المجموعات وتحديد المباريات.</div>`;
     return;
   }
   const byStage = {};
   ko.forEach((m) => { (byStage[m.stage] ??= []).push(m); });
-  // known stages first in bracket order, then any unexpected stages by kickoff
   const stages = [
     ...STAGE_ORDER.filter((s) => byStage[s]),
     ...Object.keys(byStage).filter((s) => !STAGE_ORDER.includes(s)),
   ];
   el.innerHTML =
-    `<p class="note">Predict the score AND tap who you think <b>advances</b> each tie. Score: exact 2 / result 1. Correct advancement: ${state.config?.points_advance ?? 2} pts. Both lock at kickoff.</p>` +
+    `<p class="note">توقّع النتيجة، واضغط على المنتخب الذي تظنه <b>سيتأهل</b> من كل مواجهة. النقاط: صحيحة بالضبط ٢ / الفائز ١. التأهل الصحيح: ${state.config?.points_advance ?? 2} نقطة. الكل يُقفل عند انطلاق المباراة.</p>` +
     stages.map((s) => {
       const rows = byStage[s].map((m) => matchRow(m, { advance: true })).join("");
       return `<div class="group">
@@ -426,7 +493,7 @@ function renderKnockouts() {
 }
 
 // =====================================================================
-//  BONUS PICKS
+//  التوقعات الإضافية (البطل/النهائي/نصف النهائي)
 // =====================================================================
 function teamList() {
   const set = new Set();
@@ -434,11 +501,11 @@ function teamList() {
     if (m.home_team) set.add(m.home_team);
     if (m.away_team) set.add(m.away_team);
   });
-  return [...set].sort();
+  return [...set].sort((a, b) => teamName(a).localeCompare(teamName(b), "ar"));
 }
 function selectFor(field, current, teams, disabled) {
-  const opts = `<option value="">— pick —</option>` +
-    teams.map((t) => `<option value="${esc(t)}" ${t === current ? "selected" : ""}>${esc(t)}</option>`).join("");
+  const opts = `<option value="">— اختر —</option>` +
+    teams.map((t) => `<option value="${esc(t)}" ${t === current ? "selected" : ""}>${tn(t)}</option>`).join("");
   return `<select class="pick" data-field="${field}" ${disabled}>${opts}</select>`;
 }
 function renderBonus() {
@@ -449,29 +516,28 @@ function renderBonus() {
   const b = state.bonus || {};
   const r = state.results || {};
   const dis = locked ? "disabled" : "";
-  const inArr = (t, arr) => t && Array.isArray(arr) && arr.includes(t);
 
   const lockNote = locked
-    ? `<p class="note">Bonus picks are locked (the tournament has started).</p>`
-    : `<p class="note">Lock in your tournament predictions before the first kickoff${state.config?.bonus_locks_at ? " (" + fmtKick(state.config.bonus_locks_at) + ")" : ""}. Champion = 5 pts, each finalist = 3, each semifinalist = 2.</p>`;
+    ? `<p class="note">التوقعات الإضافية مقفلة (انطلقت البطولة).</p>`
+    : `<p class="note">ثبّت توقعاتك قبل أول مباراة${state.config?.bonus_locks_at ? " (" + fmtKick(state.config.bonus_locks_at) + ")" : ""}. البطل = ${state.config.points_champion} نقطة، كل صاحب نهائي = ${state.config.points_finalist}، كل صاحب نصف نهائي = ${state.config.points_semifinalist}.</p>`;
 
   el.innerHTML = lockNote + `<div class="bonus-grid">
     <div class="bonus-card">
-      <h4>🏆 Champion <small style="color:var(--gold)">${r.champion ? "· actual: " + esc(r.champion) : ""}</small></h4>
-      <p class="hint">Who lifts the trophy? Worth ${state.config.points_champion} pts.</p>
+      <h4>🏆 البطل <small style="color:var(--gold)">${r.champion ? "· الفعلي: " + tn(r.champion) : ""}</small></h4>
+      <p class="hint">مَن يرفع الكأس؟ بـ ${state.config.points_champion} نقطة.</p>
       ${selectFor("champion", b.champion, teams, dis)}
     </div>
     <div class="bonus-card">
-      <h4>🥈 Finalists</h4>
-      <p class="hint">The two teams in the final. ${state.config.points_finalist} pts each.</p>
+      <h4>🥈 صاحبا النهائي</h4>
+      <p class="hint">المنتخبان في النهائي. ${state.config.points_finalist} نقطة لكل منهما.</p>
       <div class="bonus-row">
         ${selectFor("finalist1", b.finalist1, teams, dis)}
         ${selectFor("finalist2", b.finalist2, teams, dis)}
       </div>
     </div>
     <div class="bonus-card">
-      <h4>🥉 Semi-finalists</h4>
-      <p class="hint">The four teams in the semis. ${state.config.points_semifinalist} pts each.</p>
+      <h4>🥉 أصحاب نصف النهائي</h4>
+      <p class="hint">المنتخبات الأربعة في نصف النهائي. ${state.config.points_semifinalist} نقطة لكل منها.</p>
       <div class="bonus-row">
         ${selectFor("semifinalist1", b.semifinalist1, teams, dis)}
         ${selectFor("semifinalist2", b.semifinalist2, teams, dis)}
@@ -487,16 +553,16 @@ function renderBonus() {
         const payload = { user_id: state.user.id, updated_at: new Date().toISOString() };
         $$("select.pick", el).forEach((s) => (payload[s.dataset.field] = s.value || null));
         const { error } = await sb.from("bonus_predictions").upsert(payload, { onConflict: "user_id" });
-        if (error) { toast("Could not save (maybe locked).", true); return; }
+        if (error) { toast("تعذّر الحفظ (ربما مقفل).", true); return; }
         state.bonus = payload;
-        toast("Bonus pick saved ✓");
+        toast("تم حفظ التوقع ✓");
       })
     );
   }
 }
 
 // =====================================================================
-//  GROUP-ORDER & BEST-THIRDS PREDICTIONS
+//  ترتيب المجموعات (سحب وإفلات) + أفضل أصحاب المركز الثالث
 // =====================================================================
 function teamsInGroup(g) {
   const s = new Set();
@@ -515,136 +581,158 @@ function renderPicks() {
   if (!groupNames.length) { el.innerHTML = emptyState(); return; }
 
   const locked = bonusLocked();
-  const dis = locked ? "disabled" : "";
   const C = state.config;
 
-  // ---- group order cards (4 ordered dropdowns each) ----
   const orderCards = groupNames.map((g) => {
     const teams = teamsInGroup(g);
     const pred = state.groupPreds.get(g) || {};
-    const sel = (pos, cur) => {
-      const opts = `<option value="">—</option>` +
-        teams.map((t) => `<option value="${esc(t)}" ${t === cur ? "selected" : ""}>${esc(t)}</option>`).join("");
-      return `<select class="gpick" data-grp="${esc(g)}" data-pos="${pos}" ${dis}>${opts}</select>`;
-    };
+    const saved = [pred.pos1, pred.pos2, pred.pos3, pred.pos4].filter(Boolean).filter((t) => teams.includes(t));
+    const ordered = [...saved, ...teams.filter((t) => !saved.includes(t))];
+    const lis = ordered.map((t, i) =>
+      `<li data-team="${esc(t)}"><span class="ord">${i + 1}</span>${flagImg(t)}<span class="tname">${tn(t)}</span>${locked ? "" : '<span class="handle">⠿</span>'}</li>`
+    ).join("");
+    const lockBadge = locked ? `<span class="group-locked">🔒 مقفلة</span>` : "";
     return `<div class="bonus-card">
-      <h4>${esc(g)}</h4>
-      <div class="order-rows">
-        <label><span class="ord">1</span>${sel("pos1", pred.pos1)}</label>
-        <label><span class="ord">2</span>${sel("pos2", pred.pos2)}</label>
-        <label><span class="ord">3</span>${sel("pos3", pred.pos3)}</label>
-        <label><span class="ord">4</span>${sel("pos4", pred.pos4)}</label>
-      </div>
+      <h4>${esc(grpName(g))} ${lockBadge}</h4>
+      <ul class="dnd${locked ? " locked" : ""}" data-grp="${esc(g)}">${lis}</ul>
     </div>`;
   }).join("");
 
-  // ---- best thirds (8 dropdowns of all teams) ----
-  const allTeams = teamList();
-  const myThirds = Array.isArray(state.thirdPred?.teams) ? state.thirdPred.teams : [];
-  const thirdSel = (i) => {
-    const cur = myThirds[i] || "";
-    const opts = `<option value="">—</option>` +
-      allTeams.map((t) => `<option value="${esc(t)}" ${t === cur ? "selected" : ""}>${esc(t)}</option>`).join("");
-    return `<select class="tpick" data-i="${i}" ${dis}>${opts}</select>`;
-  };
-  const thirdsCard = `<div class="bonus-card">
-    <h4>🥉 Best third-placed teams</h4>
-    <p class="hint">8 of the 12 third-place teams reach the Round of 32. ${C.points_third} pts each correct.</p>
-    <div class="thirds-grid">${[0,1,2,3,4,5,6,7].map(thirdSel).join("")}</div>
-  </div>`;
-
   const note = locked
-    ? `<p class="note">These picks are locked (the tournament has started).</p>`
-    : `<p class="note">Predict each group's final 1–4 order and the 8 best third-place teams. Locks at the first kickoff${C?.bonus_locks_at ? " (" + fmtKick(C.bonus_locks_at) + ")" : ""}. Correct position = ${C.points_group_pos} pt · perfect group = +${C.points_group_perfect} · each correct third = ${C.points_third}.</p>`;
+    ? `<p class="note">توقعات الترتيب مقفلة (انطلقت البطولة).</p>`
+    : `<p class="note">رتّب فرق كل مجموعة بالسحب والإفلات من الأول إلى الرابع. تُقفل عند أول مباراة${C?.bonus_locks_at ? " (" + fmtKick(C.bonus_locks_at) + ")" : ""}. المركز الصحيح = ${C.points_group_pos} نقطة · المجموعة كاملة = +${C.points_group_perfect} · كل ثالث صحيح = ${C.points_third}.</p>`;
 
   el.innerHTML = note +
-    `<h3 class="sec">📊 Group final standings</h3><div class="bonus-grid picks-grid">${orderCards}</div>` +
-    `<h3 class="sec">🥉 Best third-placed teams</h3><div class="bonus-grid">${thirdsCard}</div>`;
+    `<h3 class="sec">📊 ترتيب المجموعات النهائي</h3><div class="bonus-grid picks-grid">${orderCards}</div>` +
+    `<h3 class="sec">🥉 أفضل أصحاب المركز الثالث</h3><div id="thirds-wrap"></div>`;
+
+  if (!locked && window.Sortable) {
+    $$(".dnd", el).forEach((ul) =>
+      Sortable.create(ul, {
+        animation: 150, handle: ".handle",
+        onEnd: async () => { renumber(ul); await saveGroupOrder(ul); renderThirds(); },
+      })
+    );
+  }
+  renderThirds();
+}
+
+function renumber(ul) { $$("li", ul).forEach((li, i) => ($(".ord", li).textContent = i + 1)); }
+
+async function saveGroupOrder(ul) {
+  const g = ul.dataset.grp;
+  const order = $$("li", ul).map((li) => li.dataset.team);
+  const row = {
+    user_id: state.user.id, grp: g,
+    pos1: order[0] || null, pos2: order[1] || null, pos3: order[2] || null, pos4: order[3] || null,
+    updated_at: new Date().toISOString(),
+  };
+  const { error } = await sb.from("group_predictions").upsert(row, { onConflict: "user_id,grp" });
+  if (error) { toast("تعذّر الحفظ (مقفل؟).", true); return; }
+  state.groupPreds.set(g, row);
+  toast(grpName(g) + " — تم الحفظ ✓");
+}
+
+// الفرق التي وضعها المستخدم في المركز الثالث في كل مجموعة
+function predictedThirds() {
+  const arr = [];
+  [...state.groupPreds.values()].forEach((p) => { if (p.pos3) arr.push(p.pos3); });
+  return [...new Set(arr)];
+}
+
+function renderThirds() {
+  const wrap = $("#thirds-wrap");
+  if (!wrap) return;
+  const locked = bonusLocked();
+  const C = state.config;
+  const opts = predictedThirds();
+  let chosen = (state.thirdPred?.teams || []).filter((t) => opts.includes(t));
+
+  if (!opts.length) {
+    wrap.innerHTML = `<p class="thirds-count">رتّب مجموعاتك أولًا — ستظهر هنا الفرق التي وضعتها في المركز الثالث لتختار منها ٨.</p>`;
+    return;
+  }
+
+  const chips = opts.map((t) => {
+    const on = chosen.includes(t) ? " sel" : "";
+    return `<button class="tchip${on}" data-team="${esc(t)}" ${locked ? "disabled" : ""}>${flagImg(t, "crest")}${tn(t)}</button>`;
+  }).join("");
+
+  wrap.innerHTML = `<div class="bonus-card">
+    <p class="hint">يتأهل ٨ من أصحاب المراكز الثالثة إلى دور الـ32. اختر ٨ من الفرق التي وضعتها في المركز الثالث. ${C.points_third} نقطة لكل فريق صحيح.</p>
+    <p class="thirds-count">المختار: <b id="tcount">${chosen.length}</b> / 8</p>
+    <div class="thirds-chips">${chips}</div>
+  </div>`;
 
   if (locked) return;
-
-  $$("select.gpick", el).forEach((s) =>
-    s.addEventListener("change", async () => {
-      const g = s.dataset.grp;
-      const row = { user_id: state.user.id, grp: g, updated_at: new Date().toISOString() };
-      $$("select.gpick", el).filter((x) => x.dataset.grp === g).forEach((x) => (row[x.dataset.pos] = x.value || null));
-      const { error } = await sb.from("group_predictions").upsert(row, { onConflict: "user_id,grp" });
-      if (error) { toast("Could not save (locked?).", true); return; }
-      state.groupPreds.set(g, row);
-      toast(esc(g) + " order saved ✓");
-    })
-  );
-
-  $$("select.tpick", el).forEach((s) =>
-    s.addEventListener("change", async () => {
-      const arr = [];
-      $$("select.tpick", el).forEach((x) => { if (x.value) arr.push(x.value); });
-      const teams = [...new Set(arr)];
+  $$(".tchip", wrap).forEach((btn) =>
+    btn.addEventListener("click", async () => {
+      const t = btn.dataset.team;
+      const cur = new Set((state.thirdPred?.teams || []).filter((x) => opts.includes(x)));
+      if (cur.has(t)) cur.delete(t);
+      else { if (cur.size >= 8) { toast("الحد الأقصى ٨ فرق.", true); return; } cur.add(t); }
+      const teams = [...cur];
       const { error } = await sb.from("third_predictions")
         .upsert({ user_id: state.user.id, teams, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
-      if (error) { toast("Could not save (locked?).", true); return; }
+      if (error) { toast("تعذّر الحفظ (مقفل؟).", true); return; }
       state.thirdPred = { teams };
-      toast("Best thirds saved ✓");
+      btn.classList.toggle("sel");
+      const c = $("#tcount"); if (c) c.textContent = cur.size;
     })
   );
 }
 
 // =====================================================================
-//  GROUPS & SCHEDULE  (info only — who's in each group + Saudi-time fixtures)
+//  المجموعات والجدول (معلومات فقط)
 // =====================================================================
 function renderInfo() {
   const el = $("#tab-info");
   if (!state.matches.length) { el.innerHTML = emptyState(); return; }
 
-  const crest = (url) =>
-    url ? `<img class="crest sm" src="${esc(url)}" alt="" onerror="this.style.visibility='hidden'"/>` : `<span class="crest sm"></span>`;
-
-  // ---- Group tables (live standings; before kickoff everything is 0) ----
   const groups = [...new Set(
     state.matches.filter((m) => m.stage === "GROUP_STAGE" && m.grp).map((m) => m.grp)
   )].sort();
 
   const groupsHtml = groups.map((g) => {
-    const { rows, crests } = groupStandings(g);
+    const rows = groupStandings(g);
     const body = rows.map((r, i) => `
       <tr${i < 2 ? ' class="qual"' : ""}>
         <td class="pos">${i + 1}</td>
-        <td class="tm">${crest(crests.get(r.team))}<span>${esc(r.team)}</span></td>
+        <td class="tm">${flagImg(r.team, "crest sm")}<span>${tn(r.team)}</span></td>
         <td>${r.p}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td>
         <td>${r.gf - r.ga > 0 ? "+" : ""}${r.gf - r.ga}</td>
         <td class="pts">${r.pts}</td>
       </tr>`).join("");
     return `<div class="group">
-      <div class="group-head"><h3>${esc(g)}</h3><span class="chev">▾</span></div>
+      <div class="group-head"><h3>${esc(grpName(g))}</h3><span class="chev">▾</span></div>
       <div class="group-body">
         <table class="gtable">
-          <thead><tr><th></th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GD</th><th>Pts</th></tr></thead>
+          <thead><tr><th></th><th>الفريق</th><th>لعب</th><th>فاز</th><th>تعادل</th><th>خسر</th><th>الفارق</th><th>نقاط</th></tr></thead>
           <tbody>${body}</tbody>
         </table>
       </div>
     </div>`;
   }).join("");
 
-  // ---- Full schedule, grouped by Saudi-time date ----
   const sorted = [...state.matches].sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
   const byDay = {};
   sorted.forEach((m) => { (byDay[saDateKey(m.kickoff)] ??= []).push(m); });
 
   const schedHtml = Object.keys(byDay).sort().map((day) => {
     const items = byDay[day].map((m) => {
-      const label = m.grp || stageLabel(m.stage);
+      const label = m.grp ? grpName(m.grp) : stageLabel(m.stage);
       const finished = m.status === "FINISHED" && m.home_score != null;
       const live = ["IN_PLAY", "PAUSED"].includes(m.status);
       const scoreOrVs = finished || (live && m.home_score != null)
         ? `<b class="sc">${m.home_score}–${m.away_score}</b>`
-        : `<span class="vs">v</span>`;
-      const flag = live ? `<span class="pill live">● Live</span>` : finished ? `<span class="pill points">FT</span>` : "";
+        : `<span class="vs">×</span>`;
+      const flag = live ? `<span class="pill live">● مباشر</span>` : finished ? `<span class="pill points">انتهت</span>` : "";
       return `<div class="srow">
         <span class="stime">${fmtSATime(m.kickoff)}</span>
         <span class="steams">
-          <span class="sh">${crest(m.home_crest)}${esc(m.home_team || "TBD")}</span>
+          <span class="sh">${flagImg(m.home_team)}${tn(m.home_team)}</span>
           ${scoreOrVs}
-          <span class="sa">${esc(m.away_team || "TBD")}${crest(m.away_crest)}</span>
+          <span class="sa">${tn(m.away_team)}${flagImg(m.away_team)}</span>
         </span>
         <span class="stag">${esc(label)} ${flag}</span>
       </div>`;
@@ -653,10 +741,10 @@ function renderInfo() {
   }).join("");
 
   el.innerHTML =
-    `<p class="note">Group tables update live as results come in (top 2 qualify, shaded). All kickoff times shown in <b>Saudi Arabia time (UTC+3)</b>.</p>` +
+    `<p class="note">تتحدّث جداول المجموعات تلقائيًا مع ورود النتائج (المتأهلان الأولان مظلّلان). كل المواعيد بتوقيت <b>السعودية (UTC+3)</b>.</p>` +
     `<div class="seg info-seg">
-       <button class="seg-btn active" data-view="tables">Group tables</button>
-       <button class="seg-btn" data-view="schedule">Full schedule</button>
+       <button class="seg-btn active" data-view="tables">جداول المجموعات</button>
+       <button class="seg-btn" data-view="schedule">الجدول الكامل</button>
      </div>
      <div id="info-tables">${groupsHtml}</div>
      <div id="info-schedule" class="hidden">${schedHtml}</div>`;
@@ -674,41 +762,41 @@ function renderInfo() {
 }
 
 // =====================================================================
-//  LEADERBOARD
+//  الترتيب العام
 // =====================================================================
 async function renderBoard() {
   const el = $("#tab-board");
-  el.innerHTML = `<div class="empty">Crunching the numbers…</div>`;
+  el.innerHTML = `<div class="empty">يتم حساب النقاط…</div>`;
   const { data, error } = await sb.rpc("get_leaderboard");
-  if (error) { el.innerHTML = `<div class="empty">Could not load leaderboard.</div>`; return; }
-  if (!data?.length) { el.innerHTML = `<div class="empty">No players yet. Sign up the family!</div>`; return; }
+  if (error) { el.innerHTML = `<div class="empty">تعذّر تحميل الترتيب.</div>`; return; }
+  if (!data?.length) { el.innerHTML = `<div class="empty">لا يوجد لاعبون بعد. سجّلوا العائلة!</div>`; return; }
 
   const rows = data.map((u, i) => {
     const me = u.user_id === state.user.id ? " me" : "";
     const parts = [
-      `${u.exact_count} exact`,
-      `${u.result_count} result`,
-      `${u.bonus_points} bonus`,
+      `${u.exact_count} تامة`,
+      `${u.result_count} نتيجة`,
+      `${u.bonus_points} إضافية`,
     ];
-    if (u.group_points) parts.push(`${u.group_points} groups`);
-    if (u.third_points) parts.push(`${u.third_points} thirds`);
-    if (u.bracket_points) parts.push(`${u.bracket_points} bracket`);
+    if (u.group_points) parts.push(`${u.group_points} مجموعات`);
+    if (u.third_points) parts.push(`${u.third_points} ثوالث`);
+    if (u.bracket_points) parts.push(`${u.bracket_points} إقصائي`);
     return `<div class="row${me}">
       <div class="rank">${i + 1}</div>
-      <div class="name">${esc(u.display_name)}${me ? " (you)" : ""}
+      <div class="name">${esc(u.display_name)}${me ? " (أنت)" : ""}
         <small>${parts.join(" · ")}</small>
       </div>
-      <div class="total">${u.total_points}<span> pts</span></div>
+      <div class="total">${u.total_points}<span> نقطة</span></div>
     </div>`;
   }).join("");
-  el.innerHTML = `<p class="note">Updates automatically as results come in.</p><div class="board">${rows}</div>`;
+  el.innerHTML = `<p class="note">يتحدّث تلقائيًا مع ورود النتائج.</p><div class="board">${rows}</div>`;
 }
 
 function emptyState() {
-  return `<div class="empty">Fixtures haven't loaded yet.<br/>They appear automatically the first time the results function runs (see the README setup step).</div>`;
+  return `<div class="empty">لم تُحمّل المباريات بعد.<br/>تظهر تلقائيًا عند أول تشغيل لوظيفة النتائج.</div>`;
 }
 
-// ---------- boot ----------
+// ---------- إقلاع ----------
 (async () => {
   const { data } = await sb.auth.getSession();
   if (!data.session) showAuth();
