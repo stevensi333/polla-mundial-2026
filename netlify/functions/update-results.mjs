@@ -174,6 +174,11 @@ function computeGroupTables(rows) {
   const groupRows = [];
   const thirds = [];
   for (const [grp, m] of Object.entries(groups)) {
+    // Only record FINAL standings for groups that have actually finished all
+    // their matches — otherwise provisional (all-zero, alphabetical) ordering
+    // would award group/third points before any match is played.
+    const complete = m.size === 4 && [...m.values()].every((t) => t.p >= 3);
+    if (!complete) continue;
     const ordered = [...m.values()].sort(cmp);
     groupRows.push({
       grp,
@@ -183,8 +188,7 @@ function computeGroupTables(rows) {
       pos4: ordered[3]?.team ?? null,
       updated_at: new Date().toISOString(),
     });
-    const complete = m.size === 4 && [...m.values()].every((t) => t.p >= 3);
-    if (complete && ordered[2]) thirds.push(ordered[2]);
+    if (ordered[2]) thirds.push(ordered[2]);
   }
   const bestThirds = thirds.sort(cmp).slice(0, 8).map((t) => t.team);
   return { groupRows, bestThirds };
