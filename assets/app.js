@@ -514,62 +514,50 @@ function teamList() {
   });
   return [...set].sort((a, b) => teamName(a).localeCompare(teamName(b), "ar"));
 }
-function selectFor(field, current, teams, disabled) {
-  const opts = `<option value="">— اختر —</option>` +
-    teams.map((t) => `<option value="${esc(t)}" ${t === current ? "selected" : ""}>${tn(t)}</option>`).join("");
-  return `<select class="pick" data-field="${field}" ${disabled}>${opts}</select>`;
-}
+// قراءة فقط: البطل/النهائي/نصف النهائي مأخوذة تلقائيًا من «بطاقة التوقّع»
+// (مصدر واحد — لا إدخال منفصل عن الأدوار الإقصائية)
 function renderBonus() {
   const el = $("#tab-bonus");
-  const teams = teamList();
-  if (!teams.length) { el.innerHTML = emptyState(); return; }
-  const locked = bonusLocked();
+  if (!state.matches.length) { el.innerHTML = emptyState(); return; }
+  const C = state.config;
   const b = state.bonus || {};
   const r = state.results || {};
-  const dis = locked ? "disabled" : "";
+  const fin = Array.isArray(r.finalists) ? r.finalists : [];
+  const semi = Array.isArray(r.semifinalists) ? r.semifinalists : [];
 
-  const lockNote = locked
-    ? `<p class="note">التوقعات الإضافية مقفلة (انطلقت البطولة).</p>`
-    : `<p class="note">ثبّت توقعاتك قبل أول مباراة${state.config?.bonus_locks_at ? " (" + fmtKick(state.config.bonus_locks_at) + ")" : ""}. البطل = ${state.config.points_champion} نقطة، كل صاحب نهائي = ${state.config.points_finalist}، كل صاحب نصف نهائي = ${state.config.points_semifinalist}.</p>`;
+  const line = (team, correct) => team
+    ? `<span class="champ-t${correct ? " ok" : ""}">${flagImg(team, "crest")}${tn(team)}${correct ? " ✓" : ""}</span>`
+    : `<span class="b-empty">— لم تُحدَّد بعد —</span>`;
+  const champCorrect = b.champion && r.champion && b.champion === r.champion;
 
-  el.innerHTML = lockNote + `<div class="bonus-grid">
-    <div class="bonus-card">
-      <h4>🏆 البطل <small style="color:var(--gold)">${r.champion ? "· الفعلي: " + tn(r.champion) : ""}</small></h4>
-      <p class="hint">مَن يرفع الكأس؟ بـ ${state.config.points_champion} نقطة.</p>
-      ${selectFor("champion", b.champion, teams, dis)}
-    </div>
-    <div class="bonus-card">
-      <h4>🥈 صاحبا النهائي</h4>
-      <p class="hint">المنتخبان في النهائي. ${state.config.points_finalist} نقطة لكل منهما.</p>
-      <div class="bonus-row">
-        ${selectFor("finalist1", b.finalist1, teams, dis)}
-        ${selectFor("finalist2", b.finalist2, teams, dis)}
+  el.innerHTML =
+    `<p class="note">يُؤخذ البطل وأصحاب النهائي ونصف النهائي تلقائيًا من <b>بطاقة التوقّع</b> — هي المصدر الوحيد، فلا تُدخَل مرتين. لتغييرها، عدّل بطاقتك.</p>` +
+    `<button id="go-bracket" class="btn-ghost" style="margin:0 4px 16px">🏆 فتح بطاقة التوقّع</button>` +
+    `<div class="bonus-grid">
+      <div class="bonus-card">
+        <h4>🏆 البطل <small style="color:var(--gold)">${r.champion ? "· الفعلي: " + tn(r.champion) : ""}</small></h4>
+        <p class="hint">${C.points_champion} نقطة.</p>
+        ${line(b.champion, champCorrect)}
       </div>
-    </div>
-    <div class="bonus-card">
-      <h4>🥉 أصحاب نصف النهائي</h4>
-      <p class="hint">المنتخبات الأربعة في نصف النهائي. ${state.config.points_semifinalist} نقطة لكل منها.</p>
-      <div class="bonus-row">
-        ${selectFor("semifinalist1", b.semifinalist1, teams, dis)}
-        ${selectFor("semifinalist2", b.semifinalist2, teams, dis)}
-        ${selectFor("semifinalist3", b.semifinalist3, teams, dis)}
-        ${selectFor("semifinalist4", b.semifinalist4, teams, dis)}
+      <div class="bonus-card">
+        <h4>🥈 صاحبا النهائي</h4>
+        <p class="hint">${C.points_finalist} نقطة لكل منهما.</p>
+        <div class="bonus-row">${line(b.finalist1, b.finalist1 && fin.includes(b.finalist1))}${line(b.finalist2, b.finalist2 && fin.includes(b.finalist2))}</div>
       </div>
-    </div>
-  </div>`;
+      <div class="bonus-card">
+        <h4>🥉 أصحاب نصف النهائي</h4>
+        <p class="hint">${C.points_semifinalist} نقطة لكل منها.</p>
+        <div class="bonus-row">
+          ${line(b.semifinalist1, b.semifinalist1 && semi.includes(b.semifinalist1))}
+          ${line(b.semifinalist2, b.semifinalist2 && semi.includes(b.semifinalist2))}
+          ${line(b.semifinalist3, b.semifinalist3 && semi.includes(b.semifinalist3))}
+          ${line(b.semifinalist4, b.semifinalist4 && semi.includes(b.semifinalist4))}
+        </div>
+      </div>
+    </div>`;
 
-  if (!locked) {
-    $$("select.pick", el).forEach((sel) =>
-      sel.addEventListener("change", async () => {
-        const payload = { user_id: state.user.id, updated_at: new Date().toISOString() };
-        $$("select.pick", el).forEach((s) => (payload[s.dataset.field] = s.value || null));
-        const { error } = await sb.from("bonus_predictions").upsert(payload, { onConflict: "user_id" });
-        if (error) { toast("تعذّر الحفظ (ربما مقفل).", true); return; }
-        state.bonus = payload;
-        toast("تم حفظ التوقع ✓");
-      })
-    );
-  }
+  const go = $("#go-bracket", el);
+  if (go) go.addEventListener("click", () => { const t = $(`.tab[data-tab="bracket"]`); if (t) t.click(); });
 }
 
 // =====================================================================
