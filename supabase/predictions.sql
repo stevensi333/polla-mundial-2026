@@ -142,7 +142,11 @@ create policy "update bracket preds" on public.bracket_predictions
 
 -- =====================================================================
 --  LEADERBOARD v2  — match + bonus + group-order + thirds + bracket
+--  Drop first: the return type changed (new columns), so CREATE OR REPLACE
+--  alone is rejected by Postgres ("cannot change return type").
 -- =====================================================================
+drop function if exists public.get_leaderboard();
+
 create or replace function public.get_leaderboard()
 returns table (
   user_id       uuid,
