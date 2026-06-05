@@ -38,6 +38,42 @@ function fmtKick(iso) {
     weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
   });
 }
+
+// ---- Saudi Arabia time (Asia/Riyadh, UTC+3) ----
+const SA_TZ = "Asia/Riyadh";
+const saDateKey = (iso) => new Date(iso).toLocaleDateString("en-CA", { timeZone: SA_TZ }); // YYYY-MM-DD
+const fmtSADate = (iso) =>
+  new Date(iso).toLocaleDateString(undefined, { timeZone: SA_TZ, weekday: "long", day: "numeric", month: "long" });
+const fmtSATime = (iso) =>
+  new Date(iso).toLocaleTimeString(undefined, { timeZone: SA_TZ, hour: "2-digit", minute: "2-digit" });
+
+// Live group standings computed from finished group matches.
+function groupStandings(groupName) {
+  const ms = state.matches.filter((m) => m.stage === "GROUP_STAGE" && m.grp === groupName);
+  const table = new Map();
+  const crests = new Map();
+  const ensure = (t) => {
+    if (!table.has(t)) table.set(t, { team: t, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 });
+    return table.get(t);
+  };
+  ms.forEach((m) => {
+    if (m.home_team) { ensure(m.home_team); if (m.home_crest) crests.set(m.home_team, m.home_crest); }
+    if (m.away_team) { ensure(m.away_team); if (m.away_crest) crests.set(m.away_team, m.away_crest); }
+    if (m.status === "FINISHED" && m.home_score != null && m.away_score != null) {
+      const h = ensure(m.home_team), a = ensure(m.away_team);
+      h.p++; a.p++;
+      h.gf += m.home_score; h.ga += m.away_score;
+      a.gf += m.away_score; a.ga += m.home_score;
+      if (m.home_score > m.away_score) { h.w++; a.l++; h.pts += 3; }
+      else if (m.home_score < m.away_score) { a.w++; h.l++; a.pts += 3; }
+      else { h.d++; a.d++; h.pts++; a.pts++; }
+    }
+  });
+  const rows = [...table.values()].sort(
+    (x, y) => y.pts - x.pts || (y.gf - y.ga) - (x.gf - x.ga) || y.gf - x.gf || x.team.localeCompare(y.team)
+  );
+  return { rows, crests };
+}
 function toast(msg, isErr = false) {
   const t = $("#toast");
   t.textContent = msg; t.className = "toast show" + (isErr ? " error" : "");
@@ -180,6 +216,7 @@ function renderActiveTab() {
   if (tab === "groups") renderGroups();
   else if (tab === "knockouts") renderKnockouts();
   else if (tab === "bonus") renderBonus();
+  else if (tab === "info") renderInfo();
   else if (tab === "board") renderBoard();
 }
 
@@ -392,6 +429,90 @@ function renderBonus() {
       })
     );
   }
+}
+
+// =====================================================================
+//  GROUPS & SCHEDULE  (info only — who's in each group + Saudi-time fixtures)
+// =====================================================================
+function renderInfo() {
+  const el = $("#tab-info");
+  if (!state.matches.length) { el.innerHTML = emptyState(); return; }
+
+  const crest = (url) =>
+    url ? `<img class="crest sm" src="${esc(url)}" alt="" onerror="this.style.visibility='hidden'"/>` : `<span class="crest sm"></span>`;
+
+  // ---- Group tables (live standings; before kickoff everything is 0) ----
+  const groups = [...new Set(
+    state.matches.filter((m) => m.stage === "GROUP_STAGE" && m.grp).map((m) => m.grp)
+  )].sort();
+
+  const groupsHtml = groups.map((g) => {
+    const { rows, crests } = groupStandings(g);
+    const body = rows.map((r, i) => `
+      <tr${i < 2 ? ' class="qual"' : ""}>
+        <td class="pos">${i + 1}</td>
+        <td class="tm">${crest(crests.get(r.team))}<span>${esc(r.team)}</span></td>
+        <td>${r.p}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td>
+        <td>${r.gf - r.ga > 0 ? "+" : ""}${r.gf - r.ga}</td>
+        <td class="pts">${r.pts}</td>
+      </tr>`).join("");
+    return `<div class="group">
+      <div class="group-head"><h3>${esc(g)}</h3><span class="chev">▾</span></div>
+      <div class="group-body">
+        <table class="gtable">
+          <thead><tr><th></th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GD</th><th>Pts</th></tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join("");
+
+  // ---- Full schedule, grouped by Saudi-time date ----
+  const sorted = [...state.matches].sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
+  const byDay = {};
+  sorted.forEach((m) => { (byDay[saDateKey(m.kickoff)] ??= []).push(m); });
+
+  const schedHtml = Object.keys(byDay).sort().map((day) => {
+    const items = byDay[day].map((m) => {
+      const label = m.grp || stageLabel(m.stage);
+      const finished = m.status === "FINISHED" && m.home_score != null;
+      const live = ["IN_PLAY", "PAUSED"].includes(m.status);
+      const scoreOrVs = finished || (live && m.home_score != null)
+        ? `<b class="sc">${m.home_score}–${m.away_score}</b>`
+        : `<span class="vs">v</span>`;
+      const flag = live ? `<span class="pill live">● Live</span>` : finished ? `<span class="pill points">FT</span>` : "";
+      return `<div class="srow">
+        <span class="stime">${fmtSATime(m.kickoff)}</span>
+        <span class="steams">
+          <span class="sh">${crest(m.home_crest)}${esc(m.home_team || "TBD")}</span>
+          ${scoreOrVs}
+          <span class="sa">${esc(m.away_team || "TBD")}${crest(m.away_crest)}</span>
+        </span>
+        <span class="stag">${esc(label)} ${flag}</span>
+      </div>`;
+    }).join("");
+    return `<div class="sday"><div class="sday-head">${fmtSADate(byDay[day][0].kickoff)}</div>${items}</div>`;
+  }).join("");
+
+  el.innerHTML =
+    `<p class="note">Group tables update live as results come in (top 2 qualify, shaded). All kickoff times shown in <b>Saudi Arabia time (UTC+3)</b>.</p>` +
+    `<div class="seg info-seg">
+       <button class="seg-btn active" data-view="tables">Group tables</button>
+       <button class="seg-btn" data-view="schedule">Full schedule</button>
+     </div>
+     <div id="info-tables">${groupsHtml}</div>
+     <div id="info-schedule" class="hidden">${schedHtml}</div>`;
+
+  $$(".info-seg .seg-btn", el).forEach((b) =>
+    b.addEventListener("click", () => {
+      $$(".info-seg .seg-btn", el).forEach((x) => x.classList.toggle("active", x === b));
+      $("#info-tables", el).classList.toggle("hidden", b.dataset.view !== "tables");
+      $("#info-schedule", el).classList.toggle("hidden", b.dataset.view !== "schedule");
+    })
+  );
+  $$(".group-head", el).forEach((h) =>
+    h.addEventListener("click", () => h.parentElement.classList.toggle("collapsed"))
+  );
 }
 
 // =====================================================================
