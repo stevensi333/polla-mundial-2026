@@ -1,0 +1,14 @@
+# Netlify configuration for the World Cup 2026 family predictions site.
+
+[build]
+  publish = "."                       # static files live at the repo root
+  functions = "netlify/functions"
+  command = ""                         # no build step
+
+[functions]
+  node_bundler = "esbuild"
+
+# The schedule is also declared inside update-results.mjs (export const config).
+# Declaring it here too makes it explicit / easy to change.
+[functions."update-results"]
+  schedule = "*/30 * * * *"
