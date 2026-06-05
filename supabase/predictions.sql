@@ -45,6 +45,13 @@ create table if not exists public.group_results (
 -- ---------- actual best thirds live on tournament_results -------------
 alter table public.tournament_results add column if not exists best_thirds text[] default '{}';
 
+-- ---------- PREDICTED BRACKET (R32 -> champion, one row per user) ------
+create table if not exists public.knockout_brackets (
+  user_id    uuid primary key references auth.users(id) on delete cascade,
+  picks      jsonb not null default '{}',   -- { "r32-0":"Brazil", ... , "f-0":"France" }
+  updated_at timestamptz not null default now()
+);
+
 -- =====================================================================
 --  ROW LEVEL SECURITY
 --  group order + best thirds lock at app_config.bonus_locks_at (1st kickoff).
@@ -54,6 +61,33 @@ alter table public.group_predictions   enable row level security;
 alter table public.third_predictions   enable row level security;
 alter table public.bracket_predictions enable row level security;
 alter table public.group_results       enable row level security;
+alter table public.knockout_brackets   enable row level security;
+
+-- ----- knockout_brackets (predicted bracket; locks at first kickoff) -----
+drop policy if exists "read own bracket" on public.knockout_brackets;
+create policy "read own bracket" on public.knockout_brackets
+  for select to authenticated
+  using (
+    user_id = auth.uid()
+    or (select bonus_locks_at from public.app_config where id = 1) <= now()
+  );
+
+drop policy if exists "insert own bracket" on public.knockout_brackets;
+create policy "insert own bracket" on public.knockout_brackets
+  for insert to authenticated
+  with check (
+    auth.uid() = user_id
+    and coalesce((select bonus_locks_at from public.app_config where id = 1), 'infinity') > now()
+  );
+
+drop policy if exists "update own bracket" on public.knockout_brackets;
+create policy "update own bracket" on public.knockout_brackets
+  for update to authenticated
+  using (auth.uid() = user_id)
+  with check (
+    auth.uid() = user_id
+    and coalesce((select bonus_locks_at from public.app_config where id = 1), 'infinity') > now()
+  );
 
 -- everyone authenticated can read actual group standings
 drop policy if exists "read group_results" on public.group_results;

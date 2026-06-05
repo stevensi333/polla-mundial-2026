@@ -57,6 +57,7 @@ const state = {
   groupPreds: new Map(), thirdPred: { teams: [] },
   bracketPreds: new Map(), bracketOthers: new Map(),
   crests: new Map(), groupToggle: new Map(),
+  bracketBuild: {},
 };
 
 // ---------- أدوات صغيرة ----------
@@ -227,14 +228,16 @@ async function loadAll() {
 
 // توقعات الترتيب/الثوالث/الإقصائيات. يتعامل بهدوء إن لم تُطبّق predictions.sql بعد.
 async function loadExtraPreds() {
-  const [gp, tp, bk] = await Promise.all([
+  const [gp, tp, bk, kb] = await Promise.all([
     sb.from("group_predictions").select("user_id,grp,pos1,pos2,pos3,pos4").eq("user_id", state.user.id),
     sb.from("third_predictions").select("teams").eq("user_id", state.user.id).maybeSingle(),
     sb.from("bracket_predictions").select("match_id,user_id,advance_team"),
+    sb.from("knockout_brackets").select("picks").eq("user_id", state.user.id).maybeSingle(),
   ]);
   state.groupPreds = new Map();
   (gp.data || []).forEach((r) => state.groupPreds.set(r.grp, r));
   state.thirdPred = tp.data || { teams: [] };
+  state.bracketBuild = (kb.data && kb.data.picks) || {};
   state.bracketPreds = new Map();
   state.bracketOthers = new Map();
   (bk.data || []).forEach((p) => {
@@ -283,6 +286,7 @@ function renderActiveTab() {
   else if (tab === "knockouts") renderKnockouts();
   else if (tab === "bonus") renderBonus();
   else if (tab === "picks") renderPicks();
+  else if (tab === "bracket") renderBracket();
   else if (tab === "info") renderInfo();
   else if (tab === "board") renderBoard();
 }
@@ -610,6 +614,7 @@ function renderPicks() {
     $$(".dnd", el).forEach((ul) =>
       Sortable.create(ul, {
         animation: 150, handle: ".handle",
+        forceFallback: true, fallbackTolerance: 3, // consistent on touch + mouse
         onEnd: async () => { renumber(ul); await saveGroupOrder(ul); renderThirds(); },
       })
     );
@@ -680,6 +685,131 @@ function renderThirds() {
       const c = $("#tcount"); if (c) c.textContent = cur.size;
     })
   );
+}
+
+// =====================================================================
+//  بطاقة التوقّع (دور الـ32 → البطل) مبنية من توقعات المستخدم
+// =====================================================================
+// 32 منتخبًا = 12 أول مجموعة + 8 ثوالث مختارة + 12 ثاني مجموعة
+function bracketOrdering() {
+  const gn = [...new Set(state.matches.filter((m) => m.stage === "GROUP_STAGE" && m.grp).map((m) => m.grp))].sort();
+  const w = gn.map((g) => state.groupPreds.get(g)?.pos1);
+  const r = gn.map((g) => state.groupPreds.get(g)?.pos2);
+  const t = (state.thirdPred?.teams || []).filter(Boolean).slice(0, 8);
+  if (gn.length < 12 || w.some((x) => !x) || r.some((x) => !x) || t.length < 8) return null;
+  return [...w, ...t, ...r]; // 32
+}
+const BR_KEYS = ["r32", "r16", "qf", "sf", "f"];
+// يحسب مواجهات كل دور انطلاقًا من اختيارات المستخدم
+function computeRounds(ordering, picks) {
+  const rounds = [];
+  let cur = [];
+  for (let i = 0; i < 16; i++) cur.push([ordering[i], ordering[31 - i]]);
+  rounds.push(cur);
+  for (let L = 0; L < 4; L++) {
+    const winners = cur.map((m, idx) => {
+      let w = picks[BR_KEYS[L] + "-" + idx];
+      return w && m.includes(w) ? w : null;
+    });
+    const next = [];
+    for (let j = 0; j < winners.length / 2; j++) next.push([winners[2 * j], winners[2 * j + 1]]);
+    rounds.push(next);
+    cur = next;
+  }
+  return rounds; // [r32(16), r16(8), qf(4), sf(2), f(1)]
+}
+function pruneBracket(ordering) {
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const rounds = computeRounds(ordering, state.bracketBuild);
+    for (let L = 0; L < 5; L++) {
+      rounds[L].forEach((m, idx) => {
+        const k = BR_KEYS[L] + "-" + idx;
+        if (state.bracketBuild[k] && !m.includes(state.bracketBuild[k])) { delete state.bracketBuild[k]; changed = true; }
+      });
+    }
+  }
+}
+async function saveBracket(ordering) {
+  const { error } = await sb.from("knockout_brackets")
+    .upsert({ user_id: state.user.id, picks: state.bracketBuild, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+  if (error) { toast("تعذّر الحفظ (مقفل؟).", true); return; }
+  await syncBonusFromBracket(ordering);
+  toast("تم حفظ البطاقة ✓");
+}
+// يحوّل البطاقة إلى توقع البطل/النهائي/نصف النهائي (لاحتساب النقاط عبر التوقعات الإضافية)
+async function syncBonusFromBracket(ordering) {
+  const rounds = computeRounds(ordering, state.bracketBuild);
+  const sf = rounds[3]; // مباراتا نصف النهائي
+  const semis = [sf[0][0], sf[0][1], sf[1][0], sf[1][1]];
+  const payload = {
+    user_id: state.user.id, updated_at: new Date().toISOString(),
+    champion: state.bracketBuild["f-0"] || null,
+    finalist1: state.bracketBuild["sf-0"] || null,
+    finalist2: state.bracketBuild["sf-1"] || null,
+    semifinalist1: semis[0] || null, semifinalist2: semis[1] || null,
+    semifinalist3: semis[2] || null, semifinalist4: semis[3] || null,
+  };
+  const { error } = await sb.from("bonus_predictions").upsert(payload, { onConflict: "user_id" });
+  if (!error) state.bonus = { ...(state.bonus || {}), ...payload };
+}
+
+function renderBracket() {
+  const el = $("#tab-bracket");
+  const groupNames = [...new Set(state.matches.filter((m) => m.stage === "GROUP_STAGE" && m.grp).map((m) => m.grp))].sort();
+  if (!groupNames.length) { el.innerHTML = emptyState(); return; }
+
+  const ordering = bracketOrdering();
+  if (!ordering) {
+    const w = groupNames.filter((g) => state.groupPreds.get(g)?.pos1 && state.groupPreds.get(g)?.pos2).length;
+    const t = (state.thirdPred?.teams || []).filter(Boolean).length;
+    const need = [];
+    if (w < groupNames.length) need.push(`رتّب جميع المجموعات في تبويب «ترتيب المجموعات» (أكملت ${w} من ${groupNames.length})`);
+    if (t < 8) need.push(`اختر ٨ من أصحاب المركز الثالث (اخترت ${t})`);
+    el.innerHTML =
+      `<p class="note">ابنِ بطاقتك من توقعاتك: المتأهلان الأول والثاني من كل مجموعة + ٨ ثوالث، ثم اختر الفائز في كل مواجهة حتى البطل.</p>` +
+      `<div class="empty">للبدء:<br/>• ${need.join("<br/>• ")}</div>`;
+    return;
+  }
+
+  const locked = bonusLocked();
+  pruneBracket(ordering);
+  const rounds = computeRounds(ordering, state.bracketBuild);
+  const champion = state.bracketBuild["f-0"] && rounds[4][0].includes(state.bracketBuild["f-0"]) ? state.bracketBuild["f-0"] : null;
+  const titles = ["دور الـ32", "دور الـ16", "ربع النهائي", "نصف النهائي", "النهائي"];
+
+  const teamBtn = (team, L, idx) => {
+    if (!team) return `<span class="bteam empty">—</span>`;
+    const chosen = state.bracketBuild[BR_KEYS[L] + "-" + idx] === team;
+    return `<button class="bteam${chosen ? " sel" : ""}" data-key="${BR_KEYS[L]}" data-idx="${idx}" data-team="${esc(team)}" ${locked ? "disabled" : ""}>${flagImg(team, "crest sm")}<span>${tn(team)}</span></button>`;
+  };
+
+  const roundsHtml = rounds.map((matches, L) => {
+    const ms = matches.map((m, idx) => `<div class="bmatch">${teamBtn(m[0], L, idx)}<span class="bvs">×</span>${teamBtn(m[1], L, idx)}</div>`).join("");
+    return `<div class="bround"><h4 class="bround-h">${titles[L]}</h4>${ms}</div>`;
+  }).join("");
+
+  const champHtml = champion
+    ? `<div class="champ"><span class="champ-l">🏆 البطل المتوقّع</span><span class="champ-t">${flagImg(champion, "crest")}${tn(champion)}</span></div>`
+    : `<div class="champ muted">🏆 اختر الفائز في كل دور حتى تصل إلى البطل</div>`;
+
+  const note = locked
+    ? `<p class="note">بطاقة التوقّع مقفلة (انطلقت البطولة).</p>`
+    : `<p class="note">اختر الفائز في كل مواجهة وصولًا إلى البطل. تُبنى المواجهات من توقعاتك (الأول/الثاني/الثوالث)، وتُحدّث تلقائيًا توقع البطل وأصحاب النهائي ونصف النهائي. تُقفل عند أول مباراة.</p>`;
+
+  el.innerHTML = note + champHtml + `<div class="bracket">${roundsHtml}</div>`;
+
+  if (locked) return;
+  $$(".bteam", el).forEach((btn) => {
+    if (btn.disabled || btn.classList.contains("empty")) return;
+    btn.addEventListener("click", async () => {
+      state.bracketBuild[btn.dataset.key + "-" + btn.dataset.idx] = btn.dataset.team;
+      pruneBracket(ordering);
+      await saveBracket(ordering);
+      renderBracket();
+    });
+  });
 }
 
 // =====================================================================
@@ -768,8 +898,8 @@ async function renderBoard() {
   const el = $("#tab-board");
   el.innerHTML = `<div class="empty">يتم حساب النقاط…</div>`;
   const { data, error } = await sb.rpc("get_leaderboard");
-  if (error) { el.innerHTML = `<div class="empty">تعذّر تحميل الترتيب.</div>`; return; }
-  if (!data?.length) { el.innerHTML = `<div class="empty">لا يوجد لاعبون بعد. سجّلوا العائلة!</div>`; return; }
+  if (error) { el.innerHTML = `<div class="empty">🏆 يظهر الترتيب عند انطلاق كأس العالم وبدء وصول النتائج.</div>`; return; }
+  if (!data?.length) { el.innerHTML = `<div class="empty">🏆 يظهر الترتيب عند انطلاق كأس العالم. سجّلوا العائلة وابدؤوا التوقّع!</div>`; return; }
 
   const rows = data.map((u, i) => {
     const me = u.user_id === state.user.id ? " me" : "";
