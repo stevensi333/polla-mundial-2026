@@ -25,6 +25,8 @@ const state = {
   config: null, results: null,
   matches: [], myPreds: new Map(), othersPreds: new Map(),
   bonus: null, names: new Map(), authMode: "login",
+  groupPreds: new Map(), thirdPred: { teams: [] },
+  bracketPreds: new Map(), bracketOthers: new Map(),
 };
 
 // ---------- tiny helpers ----------
@@ -176,7 +178,30 @@ async function loadAll() {
 
   await loadPredictions();
   await loadBonus();
+  await loadExtraPreds();
   renderActiveTab();
+}
+
+// Group-order, best-thirds, and bracket picks. Fails soft if predictions.sql
+// hasn't been applied yet (tables missing) so the rest of the app still works.
+async function loadExtraPreds() {
+  const [gp, tp, bk] = await Promise.all([
+    sb.from("group_predictions").select("user_id,grp,pos1,pos2,pos3,pos4").eq("user_id", state.user.id),
+    sb.from("third_predictions").select("teams").eq("user_id", state.user.id).maybeSingle(),
+    sb.from("bracket_predictions").select("match_id,user_id,advance_team"),
+  ]);
+  state.groupPreds = new Map();
+  (gp.data || []).forEach((r) => state.groupPreds.set(r.grp, r));
+  state.thirdPred = tp.data || { teams: [] };
+  state.bracketPreds = new Map();
+  state.bracketOthers = new Map();
+  (bk.data || []).forEach((p) => {
+    if (p.user_id === state.user.id) state.bracketPreds.set(p.match_id, p.advance_team);
+    else {
+      if (!state.bracketOthers.has(p.match_id)) state.bracketOthers.set(p.match_id, []);
+      state.bracketOthers.get(p.match_id).push(p);
+    }
+  });
 }
 
 async function loadPredictions() {
@@ -216,6 +241,7 @@ function renderActiveTab() {
   if (tab === "groups") renderGroups();
   else if (tab === "knockouts") renderKnockouts();
   else if (tab === "bonus") renderBonus();
+  else if (tab === "picks") renderPicks();
   else if (tab === "info") renderInfo();
   else if (tab === "board") renderBoard();
 }
@@ -223,7 +249,7 @@ function renderActiveTab() {
 // =====================================================================
 //  MATCH ROW (shared by group + knockout)
 // =====================================================================
-function matchRow(m) {
+function matchRow(m, opts = {}) {
   const locked = isLocked(m);
   const finished = m.status === "FINISHED" && m.home_score != null;
   const live = ["IN_PLAY", "PAUSED"].includes(m.status);
@@ -255,6 +281,21 @@ function matchRow(m) {
     others = `<div class="others">Picks: ${chips}</div>`;
   }
 
+  // "who advances" picker (knockouts only, both teams known)
+  let adv = "";
+  if (opts.advance && m.home_team && m.away_team) {
+    const mineAdv = state.bracketPreds.get(m.id);
+    const actualAdv = finished
+      ? (m.winner === "HOME_TEAM" ? m.home_team : m.winner === "AWAY_TEAM" ? m.away_team : null)
+      : null;
+    const advBtn = (team) => {
+      const sel = mineAdv === team ? " sel" : "";
+      const correct = actualAdv && actualAdv === team ? " correct" : "";
+      return `<button class="adv-btn${sel}${correct}" data-team="${esc(team)}" ${locked ? "disabled" : ""}>${esc(team)}</button>`;
+    };
+    adv = `<div class="advrow"><span class="advlbl">Advances:</span>${advBtn(m.home_team)}${advBtn(m.away_team)}</div>`;
+  }
+
   return `
   <div class="match" data-id="${m.id}">
     <div class="side home">${crest(m.home_crest)}<span class="tname">${esc(home)}</span></div>
@@ -270,8 +311,30 @@ function matchRow(m) {
         ${actual}<span class="saved-tag">Saved ✓</span>${statusPill}
       </span>
     </div>
+    ${adv}
     ${others}
   </div>`;
+}
+
+// wire the knockout "who advances" buttons
+function wireAdvance(root) {
+  $$(".match", root).forEach((row) => {
+    const id = Number(row.dataset.id);
+    $$(".adv-btn", row).forEach((btn) =>
+      btn.addEventListener("click", async () => {
+        if (btn.disabled) return;
+        const team = btn.dataset.team;
+        const { error } = await sb
+          .from("bracket_predictions")
+          .upsert({ user_id: state.user.id, match_id: id, advance_team: team, updated_at: new Date().toISOString() },
+                  { onConflict: "user_id,match_id" });
+        if (error) { toast("Locked — kickoff has passed.", true); return; }
+        state.bracketPreds.set(id, team);
+        $$(".adv-btn", row).forEach((b) => b.classList.toggle("sel", b.dataset.team === team));
+        toast("Advance pick saved ✓");
+      })
+    );
+  });
 }
 
 // debounce-save a single match prediction
@@ -347,9 +410,9 @@ function renderKnockouts() {
     ...Object.keys(byStage).filter((s) => !STAGE_ORDER.includes(s)),
   ];
   el.innerHTML =
-    `<p class="note">Knockout fixtures fill in as teams qualify. Same scoring: exact 2 pts, result 1 pt.</p>` +
+    `<p class="note">Predict the score AND tap who you think <b>advances</b> each tie. Score: exact 2 / result 1. Correct advancement: ${state.config?.points_advance ?? 2} pts. Both lock at kickoff.</p>` +
     stages.map((s) => {
-      const rows = byStage[s].map(matchRow).join("");
+      const rows = byStage[s].map((m) => matchRow(m, { advance: true })).join("");
       return `<div class="group">
         <div class="group-head"><h3>${stageLabel(s)}</h3><span class="chev">▾</span></div>
         <div class="group-body">${rows}</div>
@@ -359,6 +422,7 @@ function renderKnockouts() {
     h.addEventListener("click", () => h.parentElement.classList.toggle("collapsed"))
   );
   wireMatchInputs(el);
+  wireAdvance(el);
 }
 
 // =====================================================================
@@ -429,6 +493,100 @@ function renderBonus() {
       })
     );
   }
+}
+
+// =====================================================================
+//  GROUP-ORDER & BEST-THIRDS PREDICTIONS
+// =====================================================================
+function teamsInGroup(g) {
+  const s = new Set();
+  state.matches.filter((m) => m.stage === "GROUP_STAGE" && m.grp === g).forEach((m) => {
+    if (m.home_team) s.add(m.home_team);
+    if (m.away_team) s.add(m.away_team);
+  });
+  return [...s].sort();
+}
+
+function renderPicks() {
+  const el = $("#tab-picks");
+  const groupNames = [...new Set(
+    state.matches.filter((m) => m.stage === "GROUP_STAGE" && m.grp).map((m) => m.grp)
+  )].sort();
+  if (!groupNames.length) { el.innerHTML = emptyState(); return; }
+
+  const locked = bonusLocked();
+  const dis = locked ? "disabled" : "";
+  const C = state.config;
+
+  // ---- group order cards (4 ordered dropdowns each) ----
+  const orderCards = groupNames.map((g) => {
+    const teams = teamsInGroup(g);
+    const pred = state.groupPreds.get(g) || {};
+    const sel = (pos, cur) => {
+      const opts = `<option value="">—</option>` +
+        teams.map((t) => `<option value="${esc(t)}" ${t === cur ? "selected" : ""}>${esc(t)}</option>`).join("");
+      return `<select class="gpick" data-grp="${esc(g)}" data-pos="${pos}" ${dis}>${opts}</select>`;
+    };
+    return `<div class="bonus-card">
+      <h4>${esc(g)}</h4>
+      <div class="order-rows">
+        <label><span class="ord">1</span>${sel("pos1", pred.pos1)}</label>
+        <label><span class="ord">2</span>${sel("pos2", pred.pos2)}</label>
+        <label><span class="ord">3</span>${sel("pos3", pred.pos3)}</label>
+        <label><span class="ord">4</span>${sel("pos4", pred.pos4)}</label>
+      </div>
+    </div>`;
+  }).join("");
+
+  // ---- best thirds (8 dropdowns of all teams) ----
+  const allTeams = teamList();
+  const myThirds = Array.isArray(state.thirdPred?.teams) ? state.thirdPred.teams : [];
+  const thirdSel = (i) => {
+    const cur = myThirds[i] || "";
+    const opts = `<option value="">—</option>` +
+      allTeams.map((t) => `<option value="${esc(t)}" ${t === cur ? "selected" : ""}>${esc(t)}</option>`).join("");
+    return `<select class="tpick" data-i="${i}" ${dis}>${opts}</select>`;
+  };
+  const thirdsCard = `<div class="bonus-card">
+    <h4>🥉 Best third-placed teams</h4>
+    <p class="hint">8 of the 12 third-place teams reach the Round of 32. ${C.points_third} pts each correct.</p>
+    <div class="thirds-grid">${[0,1,2,3,4,5,6,7].map(thirdSel).join("")}</div>
+  </div>`;
+
+  const note = locked
+    ? `<p class="note">These picks are locked (the tournament has started).</p>`
+    : `<p class="note">Predict each group's final 1–4 order and the 8 best third-place teams. Locks at the first kickoff${C?.bonus_locks_at ? " (" + fmtKick(C.bonus_locks_at) + ")" : ""}. Correct position = ${C.points_group_pos} pt · perfect group = +${C.points_group_perfect} · each correct third = ${C.points_third}.</p>`;
+
+  el.innerHTML = note +
+    `<h3 class="sec">📊 Group final standings</h3><div class="bonus-grid picks-grid">${orderCards}</div>` +
+    `<h3 class="sec">🥉 Best third-placed teams</h3><div class="bonus-grid">${thirdsCard}</div>`;
+
+  if (locked) return;
+
+  $$("select.gpick", el).forEach((s) =>
+    s.addEventListener("change", async () => {
+      const g = s.dataset.grp;
+      const row = { user_id: state.user.id, grp: g, updated_at: new Date().toISOString() };
+      $$("select.gpick", el).filter((x) => x.dataset.grp === g).forEach((x) => (row[x.dataset.pos] = x.value || null));
+      const { error } = await sb.from("group_predictions").upsert(row, { onConflict: "user_id,grp" });
+      if (error) { toast("Could not save (locked?).", true); return; }
+      state.groupPreds.set(g, row);
+      toast(esc(g) + " order saved ✓");
+    })
+  );
+
+  $$("select.tpick", el).forEach((s) =>
+    s.addEventListener("change", async () => {
+      const arr = [];
+      $$("select.tpick", el).forEach((x) => { if (x.value) arr.push(x.value); });
+      const teams = [...new Set(arr)];
+      const { error } = await sb.from("third_predictions")
+        .upsert({ user_id: state.user.id, teams, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+      if (error) { toast("Could not save (locked?).", true); return; }
+      state.thirdPred = { teams };
+      toast("Best thirds saved ✓");
+    })
+  );
 }
 
 // =====================================================================
@@ -527,10 +685,18 @@ async function renderBoard() {
 
   const rows = data.map((u, i) => {
     const me = u.user_id === state.user.id ? " me" : "";
+    const parts = [
+      `${u.exact_count} exact`,
+      `${u.result_count} result`,
+      `${u.bonus_points} bonus`,
+    ];
+    if (u.group_points) parts.push(`${u.group_points} groups`);
+    if (u.third_points) parts.push(`${u.third_points} thirds`);
+    if (u.bracket_points) parts.push(`${u.bracket_points} bracket`);
     return `<div class="row${me}">
       <div class="rank">${i + 1}</div>
       <div class="name">${esc(u.display_name)}${me ? " (you)" : ""}
-        <small>${u.exact_count} exact · ${u.result_count} results · ${u.bonus_points} bonus</small>
+        <small>${parts.join(" · ")}</small>
       </div>
       <div class="total">${u.total_points}<span> pts</span></div>
     </div>`;

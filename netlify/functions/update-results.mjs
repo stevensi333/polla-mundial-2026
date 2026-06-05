@@ -144,6 +144,52 @@ function deriveOutcomes(rows) {
   return { semifinalists, finalists, champion };
 }
 
+// Compute live group tables + the 8 best third-placed teams (FIFA-style
+// ordering: points, then goal difference, then goals for). Best thirds are
+// only finalised from groups that have played all their matches.
+function computeGroupTables(rows) {
+  const groups = {};
+  rows
+    .filter((r) => r.stage === "GROUP_STAGE" && r.grp)
+    .forEach((r) => {
+      const g = (groups[r.grp] ??= new Map());
+      const ensure = (t) => {
+        if (!t) return null;
+        if (!g.has(t)) g.set(t, { team: t, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 });
+        return g.get(t);
+      };
+      const h = ensure(r.home_team), a = ensure(r.away_team);
+      if (h && a && r.status === "FINISHED" && r.home_score != null && r.away_score != null) {
+        h.p++; a.p++;
+        h.gf += r.home_score; h.ga += r.away_score;
+        a.gf += r.away_score; a.ga += r.home_score;
+        if (r.home_score > r.away_score) { h.w++; a.l++; h.pts += 3; }
+        else if (r.home_score < r.away_score) { a.w++; h.l++; a.pts += 3; }
+        else { h.d++; a.d++; h.pts++; a.pts++; }
+      }
+    });
+  const cmp = (x, y) =>
+    y.pts - x.pts || (y.gf - y.ga) - (x.gf - x.ga) || y.gf - x.gf || x.team.localeCompare(y.team);
+
+  const groupRows = [];
+  const thirds = [];
+  for (const [grp, m] of Object.entries(groups)) {
+    const ordered = [...m.values()].sort(cmp);
+    groupRows.push({
+      grp,
+      pos1: ordered[0]?.team ?? null,
+      pos2: ordered[1]?.team ?? null,
+      pos3: ordered[2]?.team ?? null,
+      pos4: ordered[3]?.team ?? null,
+      updated_at: new Date().toISOString(),
+    });
+    const complete = m.size === 4 && [...m.values()].every((t) => t.p >= 3);
+    if (complete && ordered[2]) thirds.push(ordered[2]);
+  }
+  const bestThirds = thirds.sort(cmp).slice(0, 8).map((t) => t.team);
+  return { groupRows, bestThirds };
+}
+
 // ---- main handler ---------------------------------------------------
 export default async function handler() {
   const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, FOOTBALL_DATA_TOKEN } = process.env;
@@ -174,7 +220,7 @@ export default async function handler() {
     await supabase.from("app_config").update({ bonus_locks_at: firstKickoff }).eq("id", 1);
   }
 
-  // Tournament outcomes for bonus scoring.
+  // Tournament outcomes for bonus scoring (core — always present).
   const outcomes = deriveOutcomes(rows);
   await supabase
     .from("tournament_results")
@@ -185,6 +231,20 @@ export default async function handler() {
       updated_at: new Date().toISOString(),
     })
     .eq("id", 1);
+
+  // Extra-prediction outcomes (group standings + best thirds). These depend on
+  // predictions.sql having been run; if it hasn't, fail soft so the core
+  // matches/bonus pipeline keeps working.
+  const { groupRows, bestThirds } = computeGroupTables(rows);
+  const { error: btErr } = await supabase
+    .from("tournament_results")
+    .update({ best_thirds: bestThirds })
+    .eq("id", 1);
+  if (btErr) console.warn("best_thirds update skipped (run predictions.sql?):", btErr.message);
+  if (groupRows.length) {
+    const { error: grErr } = await supabase.from("group_results").upsert(groupRows, { onConflict: "grp" });
+    if (grErr) console.warn("group_results upsert skipped (run predictions.sql?):", grErr.message);
+  }
 
   const finished = rows.filter((r) => r.status === "FINISHED").length;
   const summary = `OK — source=${source}, matches=${rows.length}, finished=${finished}, champion=${outcomes.champion ?? "—"}`;

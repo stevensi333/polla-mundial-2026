@@ -260,6 +260,24 @@ select.pick:disabled { opacity: .75; }
 .gtable tr.qual .pos { color: var(--green); }
 .gtable tr.qual td { background: rgba(47,224,138,.05); }
 
+/* ---- Group Picks (order + best thirds) + knockout advance ---- */
+.sec { font-family: "Unbounded", sans-serif; font-size: 14px; margin: 22px 4px 12px; }
+.picks-grid { grid-template-columns: 1fr 1fr; }
+.order-rows { display: grid; gap: 8px; }
+.order-rows label { display: grid; grid-template-columns: 24px 1fr; align-items: center; gap: 10px; }
+.order-rows .ord { font-family: "Unbounded", sans-serif; font-weight: 800; color: var(--muted); text-align: center; }
+.thirds-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.advrow { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.advlbl { font-size: 11px; color: var(--muted); }
+.adv-btn {
+  border: 1px solid var(--line); background: var(--ink); color: var(--text);
+  padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; transition: .15s;
+}
+.adv-btn.sel { border-color: var(--green); background: rgba(47,224,138,.14); color: var(--green); }
+.adv-btn.correct { border-color: var(--gold); color: var(--gold); }
+.adv-btn:disabled { opacity: .7; cursor: default; }
+
 .sday { margin-bottom: 18px; }
 .sday-head {
   font-family: "Unbounded", sans-serif; font-size: 13px; font-weight: 700;
@@ -282,6 +300,8 @@ select.pick:disabled { opacity: .75; }
   .srow { grid-template-columns: 48px 1fr; }
   .srow .stag { grid-column: 2; text-align: left; margin-top: 2px; }
   .srow .steams { flex-wrap: wrap; }
+  .picks-grid { grid-template-columns: 1fr; }
+  .thirds-grid { grid-template-columns: 1fr; }
 }
 
 .foot {
