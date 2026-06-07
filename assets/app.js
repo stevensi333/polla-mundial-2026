@@ -1,5 +1,5 @@
 // =====================================================================
-//  كأس العالم العائلية 2026 — منطق الواجهة الأمامية (عربي / RTL)
+//  كأس العالم 2026 — استراحة 6 — منطق الواجهة الأمامية (عربي / RTL)
 //  يتصل المتصفح مباشرة بـ Supabase. أمان الصفوف (RLS) في قاعدة البيانات
 //  هو ما يحمي البيانات فعليًا، ومفتاح anon هنا عامٌّ عن قصد.
 // =====================================================================
@@ -894,7 +894,7 @@ async function renderBoard() {
   el.innerHTML = `<div class="empty">يتم حساب النقاط…</div>`;
   const { data, error } = await sb.rpc("get_leaderboard");
   if (error) { el.innerHTML = `<div class="empty">🏆 يظهر الترتيب عند انطلاق كأس العالم وبدء وصول النتائج.</div>`; return; }
-  if (!data?.length) { el.innerHTML = `<div class="empty">🏆 يظهر الترتيب عند انطلاق كأس العالم. سجّلوا العائلة وابدؤوا التوقّع!</div>`; return; }
+  if (!data?.length) { el.innerHTML = `<div class="empty">🏆 يظهر الترتيب عند انطلاق كأس العالم. سجّلوا استراحة 6 وابدؤوا التوقّع!</div>`; return; }
 
   const rows = data.map((u, i) => {
     const me = u.user_id === state.user.id ? " me" : "";
