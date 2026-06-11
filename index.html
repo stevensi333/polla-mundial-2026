@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="es" dir="ltr"></html>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>استراحة 6 — كأس العالم 2026</title>
+  <title>Polla Mundial 2026</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
@@ -21,30 +21,30 @@
   <main id="auth-view" class="auth hidden">
     <div class="auth-card">
       <div class="brand">
-        <span class="brand-kicker">2026 · أمريكا · كندا · المكسيك</span>
-        <h1 class="brand-title">كأس العالم<br /><em>استراحة 6</em></h1>
-        <p class="brand-sub">توقّعات لاستراحة 6. بطلٌ واحد. وافتخارٌ طوال الصيف.</p>
+        <span class="brand-kicker">2026 · Estados Unidos · Canadá · México</span>
+        <h1 class="brand-title">Mundial<br /><em>Polla 2026</em></h1>
+        <p class="brand-sub">Predice los resultados, suma puntos y compite con tus amigos.</p>
       </div>
 
       <div class="seg">
-        <button class="seg-btn active" data-mode="login">تسجيل الدخول</button>
-        <button class="seg-btn" data-mode="signup">حساب جديد</button>
+        <button class="seg-btn active" data-mode="login">Iniciar sesión</button>
+        <button class="seg-btn" data-mode="signup">Crear cuenta</button>
       </div>
 
       <div class="field" id="name-field" style="display:none">
-        <label>اسمك</label>
-        <input id="display-name" type="text" autocomplete="name" placeholder="مثال: عمر" />
+        <label>Tu nombre</label>
+        <input id="display-name" type="text" autocomplete="name" placeholder="Ejemplo: Steven" />
       </div>
       <div class="field">
-        <label>البريد الإلكتروني</label>
+        <label>Correo electrónico</label>
         <input id="email" type="email" autocomplete="email" placeholder="you@example.com" />
       </div>
       <div class="field">
-        <label>كلمة المرور</label>
+        <label>Contraseña</label>
         <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" />
       </div>
 
-      <button id="auth-submit" class="btn-primary">تسجيل الدخول</button>
+      <button id="auth-submit" class="btn-primary">Iniciar sesión</button>
       <p id="auth-msg" class="msg"></p>
     </div>
   </main>
@@ -54,22 +54,22 @@
     <header class="topbar">
       <div class="topbar-brand">
         <span class="dot"></span>
-        <span>استراحة 6 <strong>٢٦</strong></span>
+        <span>Polla Mundial <strong>2026</strong></span>
       </div>
       <div class="topbar-right">
         <span id="who" class="who"></span>
-        <button id="logout" class="btn-ghost">خروج</button>
+        <button id="logout" class="btn-ghost">Cerrar sesión</button>
       </div>
     </header>
 
     <nav class="tabs">
-      <button class="tab active" data-tab="groups">دور المجموعات</button>
-      <button class="tab" data-tab="knockouts">الأدوار الإقصائية</button>
-      <button class="tab" data-tab="picks">ترتيب المجموعات</button>
-      <button class="tab" data-tab="bracket">بطاقة التوقّع</button>
-      <button class="tab" data-tab="bonus">توقعات إضافية</button>
-      <button class="tab" data-tab="info">المجموعات والجدول</button>
-      <button class="tab" data-tab="board">الترتيب العام</button>
+      <button class="tab active" data-tab="groups">Fase de grupos</button>
+      <button class="tab" data-tab="knockouts">Llaves finales</button>
+      <button class="tab" data-tab="picks">Clasificación grupos</button>
+      <button class="tab" data-tab="bracket">Mi cuadro</button>
+      <button class="tab" data-tab="bonus">Predicciones extra</button>
+      <button class="tab" data-tab="info">Grupos y calendario</button>
+      <button class="tab" data-tab="board">Tabla general</button>
     </nav>
 
     <section id="tab-groups" class="panel"></section>
@@ -81,9 +81,9 @@
     <section id="tab-board" class="panel hidden"></section>
 
     <footer class="foot">
-      النقاط: <b>٢</b> للنتيجة الصحيحة بالضبط · <b>١</b> لتوقّع الفائز ·
-      الإضافية: البطل <b>٥</b>، صاحب النهائي <b>٣</b>، صاحب نصف النهائي <b>٢</b>.
-      تُقفل التوقعات عند انطلاق المباراة.
+      Puntos: <b>2</b> por marcador exacto · <b>1</b> por acertar ganador ·
+      extras: campeón <b>5</b>, finalista <b>3</b>, semifinalista <b>2</b>.
+      Las predicciones se bloquean cuando inicia cada partido.
     </footer>
   </div>
 

@@ -9,6 +9,6 @@
 //  Do NOT put the "service_role" key here.
 // -----------------------------------------------------------------
 window.APP_CONFIG = {
-  SUPABASE_URL: "https://aihjrgdzglrerkuxatvv.supabase.co",
-  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpaGpyZ2R6Z2xyZXJrdXhhdHZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2NDc5NjEsImV4cCI6MjA5NjIyMzk2MX0.P9f2uW1_g3SxDvaKRcJafx5fXUED6oGGozskDNAjPk4",
+  SUPABASE_URL: "https://wbsxrwqmpoxrrnceuswr.supabase.co",
+  SUPABASE_ANON_KEY: "sb_publishable_f5OT_XxsEr8uEMS7YbTt-A_-9BqXv7t",
 };

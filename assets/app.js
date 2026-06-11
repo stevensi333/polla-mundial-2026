@@ -1,52 +1,53 @@
 // =====================================================================
-//  كأس العالم 2026 — استراحة 6 — منطق الواجهة الأمامية (عربي / RTL)
-//  يتصل المتصفح مباشرة بـ Supabase. أمان الصفوف (RLS) في قاعدة البيانات
-//  هو ما يحمي البيانات فعليًا، ومفتاح anon هنا عامٌّ عن قصد.
+//  Polla Mundial 2026 — lógica de interfaz del usuario (Español / LTR)
+//  El navegador se conecta directamente con Supabase. La seguridad real
+//  de los datos depende de las políticas RLS configuradas en la base.
+//  La clave anon es pública por diseño.
 // =====================================================================
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cfg = window.APP_CONFIG || {};
 if (!cfg.SUPABASE_URL || cfg.SUPABASE_URL.includes("YOUR-PROJECT")) {
-  alert("افتح assets/config.js وأضف رابط Supabase ومفتاح anon أولًا.");
+  alert("Abre assets/config.js y agrega primero la URL de Supabase y la clave anon.");
 }
 const sb = createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
 
-// أسماء الأدوار بالعربية
+// Nombres de las fases
 const STAGE_LABEL = {
-  LAST_32: "دور الـ32", LAST_16: "دور الـ16", QUARTER_FINALS: "ربع النهائي",
-  SEMI_FINALS: "نصف النهائي", THIRD_PLACE: "تحديد المركز الثالث", FINAL: "النهائي",
+  LAST_32: "Dieciseisavos", LAST_16: "Octavos de final", QUARTER_FINALS: "Cuartos de final",
+  SEMI_FINALS: "Semifinales", THIRD_PLACE: "Tercer puesto", FINAL: "Final",
 };
 const STAGE_ORDER = ["LAST_32", "LAST_16", "QUARTER_FINALS", "SEMI_FINALS", "THIRD_PLACE", "FINAL"];
 const isKnockout = (m) => m.stage && m.stage !== "GROUP_STAGE";
 const stageLabel = (s) => STAGE_LABEL[s] || String(s).replace(/_/g, " ");
-const grpName = (g) => (g ? String(g).replace(/Group/i, "المجموعة") : g);
+const grpName = (g) => (g ? String(g).replace(/Group/i, "Grupo") : g);
 
-// أسماء المنتخبات بالعربية (يُستخدم الاسم الأصلي إن لم يوجد)
-const AR_TEAM = {
-  "Argentina":"الأرجنتين","Brazil":"البرازيل","France":"فرنسا","England":"إنجلترا","Spain":"إسبانيا",
-  "Germany":"ألمانيا","Portugal":"البرتغال","Netherlands":"هولندا","Belgium":"بلجيكا","Italy":"إيطاليا",
-  "Croatia":"كرواتيا","Uruguay":"الأوروغواي","Mexico":"المكسيك","United States":"الولايات المتحدة",
-  "USA":"الولايات المتحدة","Canada":"كندا","Japan":"اليابان","South Korea":"كوريا الجنوبية",
-  "Korea Republic":"كوريا الجنوبية","Australia":"أستراليا","Morocco":"المغرب","Senegal":"السنغال",
-  "Ghana":"غانا","Nigeria":"نيجيريا","Cameroon":"الكاميرون","Egypt":"مصر","Tunisia":"تونس",
-  "Algeria":"الجزائر","Saudi Arabia":"السعودية","Qatar":"قطر","Iran":"إيران","IR Iran":"إيران",
-  "Iraq":"العراق","United Arab Emirates":"الإمارات","Jordan":"الأردن","Oman":"عُمان","Kuwait":"الكويت",
-  "Bahrain":"البحرين","Palestine":"فلسطين","Lebanon":"لبنان","Syria":"سوريا","Switzerland":"سويسرا",
-  "Denmark":"الدنمارك","Sweden":"السويد","Norway":"النرويج","Poland":"بولندا","Serbia":"صربيا",
-  "Czechia":"التشيك","Czech Republic":"التشيك","Austria":"النمسا","Wales":"ويلز","Scotland":"اسكتلندا",
-  "Republic of Ireland":"أيرلندا","Ireland":"أيرلندا","Ukraine":"أوكرانيا","Turkey":"تركيا",
-  "Türkiye":"تركيا","Greece":"اليونان","Colombia":"كولومبيا","Chile":"تشيلي","Peru":"بيرو",
-  "Ecuador":"الإكوادور","Paraguay":"باراغواي","Venezuela":"فنزويلا","Bolivia":"بوليفيا",
-  "Costa Rica":"كوستاريكا","Panama":"بنما","Jamaica":"جامايكا","Honduras":"هندوراس","Haiti":"هايتي",
-  "South Africa":"جنوب أفريقيا","Ivory Coast":"ساحل العاج","Côte d'Ivoire":"ساحل العاج",
-  "Cote d'Ivoire":"ساحل العاج","Mali":"مالي","Cape Verde":"الرأس الأخضر","DR Congo":"الكونغو الديمقراطية",
-  "New Zealand":"نيوزيلندا","Uzbekistan":"أوزبكستان","Curaçao":"كوراساو","Curacao":"كوراساو",
-  "Slovakia":"سلوفاكيا","Slovenia":"سلوفينيا","Hungary":"المجر","Romania":"رومانيا","Russia":"روسيا",
-  "Finland":"فنلندا","Iceland":"آيسلندا","Albania":"ألبانيا","Bosnia and Herzegovina":"البوسنة والهرسك",
-  "North Macedonia":"مقدونيا الشمالية","Montenegro":"الجبل الأسود","Georgia":"جورجيا","Israel":"إسرائيل",
-  "Indonesia":"إندونيسيا","Thailand":"تايلاند","China PR":"الصين","China":"الصين","India":"الهند",
+// Nombres de selecciones en español; si no existe traducción, se usa el nombre original.
+const ES_TEAM = {
+  "Argentina": "Argentina", "Brazil": "Brasil", "France": "Francia", "England": "Inglaterra", "Spain": "España",
+  "Germany": "Alemania", "Portugal": "Portugal", "Netherlands": "Países Bajos", "Belgium": "Bélgica", "Italy": "Italia",
+  "Croatia": "Croacia", "Uruguay": "Uruguay", "Mexico": "México", "United States": "Estados Unidos",
+  "USA": "Estados Unidos", "Canada": "Canadá", "Japan": "Japón", "South Korea": "Corea del Sur",
+  "Korea Republic": "Corea del Sur", "Australia": "Australia", "Morocco": "Marruecos", "Senegal": "Senegal",
+  "Ghana": "Ghana", "Nigeria": "Nigeria", "Cameroon": "Camerún", "Egypt": "Egipto", "Tunisia": "Túnez",
+  "Algeria": "Argelia", "Saudi Arabia": "Arabia Saudita", "Qatar": "Catar", "Iran": "Irán", "IR Iran": "Irán",
+  "Iraq": "Irak", "United Arab Emirates": "Emiratos Árabes Unidos", "Jordan": "Jordania", "Oman": "Omán", "Kuwait": "Kuwait",
+  "Bahrain": "Baréin", "Palestine": "Palestina", "Lebanon": "Líbano", "Syria": "Siria", "Switzerland": "Suiza",
+  "Denmark": "Dinamarca", "Sweden": "Suecia", "Norway": "Noruega", "Poland": "Polonia", "Serbia": "Serbia",
+  "Czechia": "Chequia", "Czech Republic": "República Checa", "Austria": "Austria", "Wales": "Gales", "Scotland": "Escocia",
+  "Republic of Ireland": "Irlanda", "Ireland": "Irlanda", "Ukraine": "Ucrania", "Turkey": "Turquía",
+  "Türkiye": "Turquía", "Greece": "Grecia", "Colombia": "Colombia", "Chile": "Chile", "Peru": "Perú",
+  "Ecuador": "Ecuador", "Paraguay": "Paraguay", "Venezuela": "Venezuela", "Bolivia": "Bolivia",
+  "Costa Rica": "Costa Rica", "Panama": "Panamá", "Jamaica": "Jamaica", "Honduras": "Honduras", "Haiti": "Haití",
+  "South Africa": "Sudáfrica", "Ivory Coast": "Costa de Marfil", "Côte d'Ivoire": "Costa de Marfil",
+  "Cote d'Ivoire": "Costa de Marfil", "Mali": "Malí", "Cape Verde": "Cabo Verde", "DR Congo": "República Democrática del Congo",
+  "New Zealand": "Nueva Zelanda", "Uzbekistan": "Uzbekistán", "Curaçao": "Curazao", "Curacao": "Curazao",
+  "Slovakia": "Eslovaquia", "Slovenia": "Eslovenia", "Hungary": "Hungría", "Romania": "Rumania", "Russia": "Rusia",
+  "Finland": "Finlandia", "Iceland": "Islandia", "Albania": "Albania", "Bosnia and Herzegovina": "Bosnia y Herzegovina",
+  "North Macedonia": "Macedonia del Norte", "Montenegro": "Montenegro", "Georgia": "Georgia", "Israel": "Israel",
+  "Indonesia": "Indonesia", "Thailand": "Tailandia", "China PR": "China", "China": "China", "India": "India",
 };
-const teamName = (t) => (t ? (AR_TEAM[t] || t) : "غير محدد");
+const teamName = (t) => (t ? (ES_TEAM[t] || t) : "Por definir");
 const tn = (t) => esc(teamName(t));
 
 const state = {
@@ -60,7 +61,7 @@ const state = {
   bracketBuild: {},
 };
 
-// ---------- أدوات صغيرة ----------
+// ---------- Utilidades ----------
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -72,22 +73,22 @@ const flagImg = (t, cls = "crest") => {
   return u ? `<img class="${cls}" src="${esc(u)}" alt="" onerror="this.style.visibility='hidden'"/>` : `<span class="${cls}"></span>`;
 };
 
-// ---- وقت السعودية (Asia/Riyadh = UTC+3) + تاريخ بالعربية ----
-const SA_TZ = "Asia/Riyadh";
-const AR = "ar";
-const saDateKey = (iso) => new Date(iso).toLocaleDateString("en-CA", { timeZone: SA_TZ }); // YYYY-MM-DD
-const fmtSADate = (iso) =>
-  new Date(iso).toLocaleDateString(AR, { timeZone: SA_TZ, calendar: "gregory", numberingSystem: "latn", weekday: "long", day: "numeric", month: "long" });
-const fmtSATime = (iso) =>
-  new Date(iso).toLocaleTimeString(AR, { timeZone: SA_TZ, calendar: "gregory", numberingSystem: "latn", hour: "2-digit", minute: "2-digit" });
+// ---- Hora de Colombia (America/Bogota) + fecha en español ----
+const APP_TZ = "America/Bogota";
+const APP_LOCALE = "es-CO";
+const appDateKey = (iso) => new Date(iso).toLocaleDateString("en-CA", { timeZone: APP_TZ }); // YYYY-MM-DD
+const fmtAppDate = (iso) =>
+  new Date(iso).toLocaleDateString(APP_LOCALE, { timeZone: APP_TZ, calendar: "gregory", numberingSystem: "latn", weekday: "long", day: "numeric", month: "long" });
+const fmtAppTime = (iso) =>
+  new Date(iso).toLocaleTimeString(APP_LOCALE, { timeZone: APP_TZ, calendar: "gregory", numberingSystem: "latn", hour: "2-digit", minute: "2-digit" });
 function fmtKick(iso) {
-  return new Date(iso).toLocaleString(AR, {
-    timeZone: SA_TZ, calendar: "gregory", numberingSystem: "latn",
+  return new Date(iso).toLocaleString(APP_LOCALE, {
+    timeZone: APP_TZ, calendar: "gregory", numberingSystem: "latn",
     weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
   });
 }
 
-// جدول المجموعة محسوبًا من المباريات المنتهية
+// Tabla de grupo calculada con los partidos finalizados
 function groupStandings(groupName) {
   const ms = state.matches.filter((m) => m.stage === "GROUP_STAGE" && m.grp === groupName);
   const table = new Map();
@@ -127,7 +128,7 @@ function pointsFor(pred, m) {
 }
 
 // =====================================================================
-//  تسجيل الدخول
+//  Inicio de sesión
 // =====================================================================
 function showAuth() { $("#auth-view").classList.remove("hidden"); $("#app-view").classList.add("hidden"); }
 function showApp() { $("#auth-view").classList.add("hidden"); $("#app-view").classList.remove("hidden"); }
@@ -138,11 +139,27 @@ $$(".seg-btn").forEach((b) =>
     state.authMode = b.dataset.mode;
     $$(".seg-btn").forEach((x) => x.classList.toggle("active", x === b));
     $("#name-field").style.display = state.authMode === "signup" ? "block" : "none";
-    $("#auth-submit").textContent = state.authMode === "signup" ? "إنشاء حساب" : "تسجيل الدخول";
+    $("#auth-submit").textContent = state.authMode === "signup" ? "Crear cuenta" : "Iniciar sesión";
     $("#password").autocomplete = state.authMode === "signup" ? "new-password" : "current-password";
     $("#auth-msg").textContent = "";
   })
 );
+
+
+function translateAuthError(message) {
+  const msg = String(message || "");
+  const map = [
+    ["Email not confirmed", "El correo no está confirmado."],
+    ["Invalid login credentials", "Correo o contraseña incorrectos."],
+    ["User already registered", "Este correo ya está registrado."],
+    ["Password should be at least", "La contraseña no cumple la longitud mínima."],
+    ["Signup requires a valid password", "La contraseña no es válida."],
+    ["Unable to validate email address", "El correo no es válido."],
+    ["Email rate limit exceeded", "Se alcanzó el límite temporal de correos. Intenta más tarde."],
+  ];
+  const found = map.find(([key]) => msg.toLowerCase().includes(key.toLowerCase()));
+  return found ? found[1] : msg;
+}
 
 $("#auth-submit").addEventListener("click", async () => {
   const email = $("#email").value.trim();
@@ -150,17 +167,17 @@ $("#auth-submit").addEventListener("click", async () => {
   const name = $("#display-name").value.trim();
   const msg = $("#auth-msg");
   msg.className = "msg"; msg.textContent = "";
-  if (!email || !password) { msg.className = "msg error"; msg.textContent = "البريد وكلمة المرور مطلوبان."; return; }
+  if (!email || !password) { msg.className = "msg error"; msg.textContent = "El correo y la contraseña son obligatorios."; return; }
 
   $("#auth-submit").disabled = true;
   try {
     if (state.authMode === "signup") {
-      if (!name) { throw new Error("الرجاء إدخال اسمك."); }
+      if (!name) { throw new Error("Por favor ingresa tu nombre."); }
       const { data, error } = await sb.auth.signUp({ email, password });
       if (error) throw error;
       state._pendingName = name;
       if (!data.session) {
-        msg.textContent = "تم إنشاء الحساب. تحقّق من بريدك للتأكيد ثم سجّل الدخول.";
+        msg.textContent = "Cuenta creada. Revisa tu correo para confirmarla y luego inicia sesión.";
         return;
       }
     } else {
@@ -168,7 +185,7 @@ $("#auth-submit").addEventListener("click", async () => {
       if (error) throw error;
     }
   } catch (e) {
-    msg.className = "msg error"; msg.textContent = e.message || "حدث خطأ ما.";
+    msg.className = "msg error"; msg.textContent = translateAuthError(e.message) || "Ocurrió un error.";
   } finally {
     $("#auth-submit").disabled = false;
   }
@@ -205,7 +222,7 @@ async function ensureProfile() {
 }
 
 // =====================================================================
-//  تحميل البيانات
+//  Carga de datos
 // =====================================================================
 async function loadAll() {
   $("#who").textContent = state.profile?.display_name || "";
@@ -220,7 +237,7 @@ async function loadAll() {
   state.matches = matches || [];
   state.names = new Map((profiles || []).map((p) => [p.id, p.display_name]));
 
-  // خريطة شعارات/أعلام لكل منتخب
+  // Mapa de escudos/banderas por selección
   state.crests = new Map();
   state.matches.forEach((m) => {
     if (m.home_team && m.home_crest) state.crests.set(m.home_team, m.home_crest);
@@ -233,7 +250,7 @@ async function loadAll() {
   renderActiveTab();
 }
 
-// توقعات الترتيب/الثوالث/الإقصائيات. يتعامل بهدوء إن لم تُطبّق predictions.sql بعد.
+// Predicciones de grupos/terceros/llaves. Falla sin romper si aún no se aplicó predictions.sql.
 async function loadExtraPreds() {
   const [gp, tp, bk, kb] = await Promise.all([
     sb.from("group_predictions").select("user_id,grp,pos1,pos2,pos3,pos4").eq("user_id", state.user.id),
@@ -276,7 +293,7 @@ async function loadBonus() {
 }
 
 // =====================================================================
-//  التبويبات
+//  Pestañas
 // =====================================================================
 $$(".tab").forEach((t) =>
   t.addEventListener("click", () => {
@@ -299,7 +316,7 @@ function renderActiveTab() {
 }
 
 // =====================================================================
-//  صف المباراة (مشترك بين المجموعات والإقصائيات)
+//  Fila de partido (compartida entre grupos y eliminatorias)
 // =====================================================================
 function matchRow(m, opts = {}) {
   const locked = isLocked(m);
@@ -309,28 +326,28 @@ function matchRow(m, opts = {}) {
   const hv = mine ? mine.home_score : "";
   const av = mine ? mine.away_score : "";
 
-  let statusPill = `<span class="pill open">مفتوحة</span>`;
-  if (live) statusPill = `<span class="pill live">● مباشر</span>`;
-  else if (finished) statusPill = `<span class="pill points">+${pointsFor(mine, m)} نقطة</span>`;
-  else if (locked) statusPill = `<span class="pill locked">مقفلة</span>`;
+  let statusPill = `<span class="pill open">Abierta</span>`;
+  if (live) statusPill = `<span class="pill live">● En vivo</span>`;
+  else if (finished) statusPill = `<span class="pill points">+${pointsFor(mine, m)} puntos</span>`;
+  else if (locked) statusPill = `<span class="pill locked">Cerrada</span>`;
 
   const disabled = locked ? "disabled" : "";
 
   let actual = "";
-  if (finished) actual = `<span class="actual">النتيجة: <b>${m.home_score}–${m.away_score}</b></span>`;
-  else if (live && m.home_score != null) actual = `<span class="actual">مباشر: <b>${m.home_score}–${m.away_score}</b></span>`;
+  if (finished) actual = `<span class="actual">Resultado: <b>${m.home_score}–${m.away_score}</b></span>`;
+  else if (live && m.home_score != null) actual = `<span class="actual">En vivo: <b>${m.home_score}–${m.away_score}</b></span>`;
 
-  // توقعات الآخرين (تظهر بعد انطلاق المباراة فقط عبر RLS)
+  // Predicciones de otros usuarios (solo visibles después del inicio por RLS)
   let others = "";
   const list = state.othersPreds.get(m.id);
   if (locked && list?.length) {
     const chips = list
-      .map((p) => `<span class="chip"><b>${esc(state.names.get(p.user_id) || "؟")}</b> ${p.home_score}–${p.away_score}</span>`)
+      .map((p) => `<span class="chip"><b>${esc(state.names.get(p.user_id) || "?")}</b> ${p.home_score}–${p.away_score}</span>`)
       .join("");
-    others = `<div class="others">التوقعات: ${chips}</div>`;
+    others = `<div class="others">Predicciones: ${chips}</div>`;
   }
 
-  // مَن يتأهل (للإقصائيات فقط، إذا عُرف الفريقان)
+  // Equipo que avanza (solo en eliminatorias, si ambos equipos ya existen)
   let adv = "";
   if (opts.advance && m.home_team && m.away_team) {
     const mineAdv = state.bracketPreds.get(m.id);
@@ -342,7 +359,7 @@ function matchRow(m, opts = {}) {
       const correct = actualAdv && actualAdv === team ? " correct" : "";
       return `<button class="adv-btn${sel}${correct}" data-team="${esc(team)}" ${locked ? "disabled" : ""}>${tn(team)}</button>`;
     };
-    adv = `<div class="advrow"><span class="advlbl">يتأهل:</span>${advBtn(m.home_team)}${advBtn(m.away_team)}</div>`;
+    adv = `<div class="advrow"><span class="advlbl">Avanza:</span>${advBtn(m.home_team)}${advBtn(m.away_team)}</div>`;
   }
 
   return `
@@ -357,7 +374,7 @@ function matchRow(m, opts = {}) {
     <div class="meta">
       <span class="kick">${fmtKick(m.kickoff)}</span>
       <span style="display:flex;gap:8px;align-items:center">
-        ${actual}<span class="saved-tag">حُفظ ✓</span>${statusPill}
+        ${actual}<span class="saved-tag">Guardado ✓</span>${statusPill}
       </span>
     </div>
     ${adv}
@@ -365,7 +382,7 @@ function matchRow(m, opts = {}) {
   </div>`;
 }
 
-// أزرار "مَن يتأهل" في الإقصائيات
+// Botones de equipo que avanza en eliminatorias
 function wireAdvance(root) {
   $$(".match", root).forEach((row) => {
     const id = Number(row.dataset.id);
@@ -376,17 +393,17 @@ function wireAdvance(root) {
         const { error } = await sb
           .from("bracket_predictions")
           .upsert({ user_id: state.user.id, match_id: id, advance_team: team, updated_at: new Date().toISOString() },
-                  { onConflict: "user_id,match_id" });
-        if (error) { toast("مقفلة — انطلقت المباراة.", true); return; }
+            { onConflict: "user_id,match_id" });
+        if (error) { toast("Cerrado: el partido ya inició.", true); return; }
         state.bracketPreds.set(id, team);
         $$(".adv-btn", row).forEach((b) => b.classList.toggle("sel", b.dataset.team === team));
-        toast("تم حفظ المتأهل ✓");
+        toast("Clasificado guardado ✓");
       })
     );
   });
 }
 
-// حفظ توقّع نتيجة مباراة (مع تأخير بسيط)
+// Guarda la predicción del marcador con una pequeña espera
 function wireMatchInputs(root) {
   $$(".match", root).forEach((row) => {
     const id = Number(row.dataset.id);
@@ -404,8 +421,8 @@ function wireMatchInputs(root) {
           const { error } = await sb
             .from("predictions")
             .upsert({ user_id: state.user.id, match_id: id, home_score, away_score, updated_at: new Date().toISOString() },
-                    { onConflict: "user_id,match_id" });
-          if (error) { toast("مقفلة — انطلقت المباراة.", true); return; }
+              { onConflict: "user_id,match_id" });
+          if (error) { toast("Cerrado: el partido ya inició.", true); return; }
           state.myPreds.set(id, { match_id: id, user_id: state.user.id, home_score, away_score });
           tag.classList.add("show"); setTimeout(() => tag.classList.remove("show"), 1200);
           maybeRevealNext(id);
@@ -415,7 +432,7 @@ function wireMatchInputs(root) {
   });
 }
 
-// عند إكمال توقعات مجموعة، افتح المجموعة التالية تلقائيًا
+// Al completar las predicciones de un grupo, abre automáticamente el siguiente grupo
 function maybeRevealNext(matchId) {
   const m = state.matches.find((x) => x.id === matchId);
   if (!m || m.stage !== "GROUP_STAGE") return;
@@ -433,7 +450,7 @@ function maybeRevealNext(matchId) {
 const cssAttr = (s) => String(s).replace(/"/g, '\\"');
 
 // =====================================================================
-//  دور المجموعات
+//  Fase de grupos
 // =====================================================================
 function groupComplete(matches) {
   return matches.length > 0 && matches.every((m) => state.myPreds.has(m.id));
@@ -444,17 +461,17 @@ function renderGroups() {
   if (!groupMatches.length) { el.innerHTML = emptyState(); return; }
 
   const byGroup = {};
-  groupMatches.forEach((m) => { (byGroup[m.grp || "؟"] ??= []).push(m); });
+  groupMatches.forEach((m) => { (byGroup[m.grp || "?"] ??= []).push(m); });
   const names = Object.keys(byGroup).sort();
 
   el.innerHTML =
-    `<p class="note">توقّع نتيجة كل مباراة. تُقفل المباراة عند انطلاقها. النتيجة الصحيحة بالضبط = ٢ نقطة، توقّع الفائز = ١. تُفتح المجموعة التالية تلقائيًا بعد إكمال توقعات المجموعة التي قبلها.</p>` +
+    `<p class="note">Predice el marcador de cada partido. Cada partido se bloquea cuando inicia. Marcador exacto = 2 puntos; acertar el ganador = 1 punto. El siguiente grupo se abre automáticamente cuando completes el grupo anterior.</p>` +
     names.map((g, idx) => {
       const rows = byGroup[g].map((m) => matchRow(m)).join("");
       const prevComplete = idx === 0 || groupComplete(byGroup[names[idx - 1]]);
-      const manual = state.groupToggle.get(g); // true=مفتوحة، false=مغلقة، undefined=تلقائي
+      const manual = state.groupToggle.get(g); // true=abierta, false=cerrada, undefined=automático
       const open = manual !== undefined ? manual : (idx === 0 || prevComplete);
-      const done = groupComplete(byGroup[g]) ? `<span class="group-done">✓ مكتملة</span>` : "";
+      const done = groupComplete(byGroup[g]) ? `<span class="group-done">✓ Completo</span>` : "";
       return `<div class="group${open ? "" : " collapsed"}" data-grp="${esc(g)}">
         <div class="group-head"><h3>${esc(grpName(g))} ${done}</h3><span class="chev">▾</span></div>
         <div class="group-body">${rows}</div>
@@ -472,13 +489,13 @@ function renderGroups() {
 }
 
 // =====================================================================
-//  الأدوار الإقصائية
+//  Eliminatorias
 // =====================================================================
 function renderKnockouts() {
   const el = $("#tab-knockouts");
   const ko = state.matches.filter(isKnockout);
   if (!ko.length) {
-    el.innerHTML = `<div class="empty">تظهر الأدوار الإقصائية تلقائيًا بعد انتهاء دور المجموعات وتحديد المباريات.</div>`;
+    el.innerHTML = `<div class="empty">Las eliminatorias aparecerán automáticamente cuando termine la fase de grupos y se definan los partidos.</div>`;
     return;
   }
   const byStage = {};
@@ -488,7 +505,7 @@ function renderKnockouts() {
     ...Object.keys(byStage).filter((s) => !STAGE_ORDER.includes(s)),
   ];
   el.innerHTML =
-    `<p class="note">توقّع النتيجة، واضغط على المنتخب الذي تظنه <b>سيتأهل</b> من كل مواجهة. النقاط: صحيحة بالضبط ٢ / الفائز ١. التأهل الصحيح: ${state.config?.points_advance ?? 2} نقطة. الكل يُقفل عند انطلاق المباراة.</p>` +
+    `<p class="note">Predice el marcador y selecciona la selección que crees que <b>avanzará</b> en cada cruce. Puntos: marcador exacto 2 / ganador 1. Clasificado correcto: ${state.config?.points_advance ?? 2} puntos. Todo se bloquea cuando inicia cada partido.</p>` +
     stages.map((s) => {
       const rows = byStage[s].map((m) => matchRow(m, { advance: true })).join("");
       return `<div class="group">
@@ -504,7 +521,7 @@ function renderKnockouts() {
 }
 
 // =====================================================================
-//  التوقعات الإضافية (البطل/النهائي/نصف النهائي)
+//  Predicciones extra (campeón/finalistas/semifinalistas)
 // =====================================================================
 function teamList() {
   const set = new Set();
@@ -512,10 +529,10 @@ function teamList() {
     if (m.home_team) set.add(m.home_team);
     if (m.away_team) set.add(m.away_team);
   });
-  return [...set].sort((a, b) => teamName(a).localeCompare(teamName(b), "ar"));
+  return [...set].sort((a, b) => teamName(a).localeCompare(teamName(b), "es"));
 }
-// قراءة فقط: البطل/النهائي/نصف النهائي مأخوذة تلقائيًا من «بطاقة التوقّع»
-// (مصدر واحد — لا إدخال منفصل عن الأدوار الإقصائية)
+// Solo lectura: campeón/finalistas/semifinalistas se toman automáticamente de "Mi cuadro".
+// Fuente única: no se ingresan dos veces fuera de las eliminatorias.
 function renderBonus() {
   const el = $("#tab-bonus");
   if (!state.matches.length) { el.innerHTML = emptyState(); return; }
@@ -527,26 +544,26 @@ function renderBonus() {
 
   const line = (team, correct) => team
     ? `<span class="champ-t${correct ? " ok" : ""}">${flagImg(team, "crest")}${tn(team)}${correct ? " ✓" : ""}</span>`
-    : `<span class="b-empty">— لم تُحدَّد بعد —</span>`;
+    : `<span class="b-empty">— Aún no definido —</span>`;
   const champCorrect = b.champion && r.champion && b.champion === r.champion;
 
   el.innerHTML =
-    `<p class="note">يُؤخذ البطل وأصحاب النهائي ونصف النهائي تلقائيًا من <b>بطاقة التوقّع</b> — هي المصدر الوحيد، فلا تُدخَل مرتين. لتغييرها، عدّل بطاقتك.</p>` +
-    `<button id="go-bracket" class="btn-ghost" style="margin:0 4px 16px">🏆 فتح بطاقة التوقّع</button>` +
+    `<p class="note">El campeón, los finalistas y los semifinalistas se toman automáticamente de <b>Mi cuadro</b>. Esa es la fuente principal; no tienes que ingresarlos dos veces. Para cambiarlos, modifica tu cuadro.</p>` +
+    `<button id="go-bracket" class="btn-ghost" style="margin:0 4px 16px">🏆 Abrir mi cuadro</button>` +
     `<div class="bonus-grid">
       <div class="bonus-card">
-        <h4>🏆 البطل <small style="color:var(--gold)">${r.champion ? "· الفعلي: " + tn(r.champion) : ""}</small></h4>
-        <p class="hint">${C.points_champion} نقطة.</p>
+        <h4>🏆 Campeón <small style="color:var(--gold)">${r.champion ? "· real: " + tn(r.champion) : ""}</small></h4>
+        <p class="hint">${C.points_champion} puntos.</p>
         ${line(b.champion, champCorrect)}
       </div>
       <div class="bonus-card">
-        <h4>🥈 صاحبا النهائي</h4>
-        <p class="hint">${C.points_finalist} نقطة لكل منهما.</p>
+        <h4>🥈 Finalistas</h4>
+        <p class="hint">${C.points_finalist} puntos por cada uno.</p>
         <div class="bonus-row">${line(b.finalist1, b.finalist1 && fin.includes(b.finalist1))}${line(b.finalist2, b.finalist2 && fin.includes(b.finalist2))}</div>
       </div>
       <div class="bonus-card">
-        <h4>🥉 أصحاب نصف النهائي</h4>
-        <p class="hint">${C.points_semifinalist} نقطة لكل منها.</p>
+        <h4>🥉 Semifinalistas</h4>
+        <p class="hint">${C.points_semifinalist} puntos por cada uno.</p>
         <div class="bonus-row">
           ${line(b.semifinalist1, b.semifinalist1 && semi.includes(b.semifinalist1))}
           ${line(b.semifinalist2, b.semifinalist2 && semi.includes(b.semifinalist2))}
@@ -561,7 +578,7 @@ function renderBonus() {
 }
 
 // =====================================================================
-//  ترتيب المجموعات (سحب وإفلات) + أفضل أصحاب المركز الثالث
+//  Clasificación de grupos (arrastrar y soltar) + mejores terceros
 // =====================================================================
 function teamsInGroup(g) {
   const s = new Set();
@@ -590,7 +607,7 @@ function renderPicks() {
     const lis = ordered.map((t, i) =>
       `<li data-team="${esc(t)}"><span class="ord">${i + 1}</span>${flagImg(t)}<span class="tname">${tn(t)}</span>${locked ? "" : '<span class="handle">⠿</span>'}</li>`
     ).join("");
-    const lockBadge = locked ? `<span class="group-locked">🔒 مقفلة</span>` : "";
+    const lockBadge = locked ? `<span class="group-locked">🔒 Cerrado</span>` : "";
     return `<div class="bonus-card">
       <h4>${esc(grpName(g))} ${lockBadge}</h4>
       <ul class="dnd${locked ? " locked" : ""}" data-grp="${esc(g)}">${lis}</ul>
@@ -598,12 +615,12 @@ function renderPicks() {
   }).join("");
 
   const note = locked
-    ? `<p class="note">توقعات الترتيب مقفلة (انطلقت البطولة).</p>`
-    : `<p class="note">رتّب فرق كل مجموعة بالسحب والإفلات من الأول إلى الرابع. تُقفل عند أول مباراة${C?.bonus_locks_at ? " (" + fmtKick(C.bonus_locks_at) + ")" : ""}. المركز الصحيح = ${C.points_group_pos} نقطة · المجموعة كاملة = +${C.points_group_perfect} · كل ثالث صحيح = ${C.points_third}.</p>`;
+    ? `<p class="note">Las predicciones de clasificación están cerradas porque la competencia ya inició.</p>`
+    : `<p class="note">Ordena los equipos de cada grupo arrastrando del primero al cuarto. Se bloquea al iniciar el primer partido${C?.bonus_locks_at ? " (" + fmtKick(C.bonus_locks_at) + ")" : ""}. Posición correcta = ${C.points_group_pos} punto(s) · grupo perfecto = +${C.points_group_perfect} · cada tercero correcto = ${C.points_third}.</p>`;
 
   el.innerHTML = note +
-    `<h3 class="sec">📊 ترتيب المجموعات النهائي</h3><div class="bonus-grid picks-grid">${orderCards}</div>` +
-    `<h3 class="sec">🥉 أفضل أصحاب المركز الثالث</h3><div id="thirds-wrap"></div>`;
+    `<h3 class="sec">📊 Clasificación final de grupos</h3><div class="bonus-grid picks-grid">${orderCards}</div>` +
+    `<h3 class="sec">🥉 Mejores terceros</h3><div id="thirds-wrap"></div>`;
 
   if (!locked && window.Sortable) {
     $$(".dnd", el).forEach((ul) =>
@@ -628,12 +645,12 @@ async function saveGroupOrder(ul) {
     updated_at: new Date().toISOString(),
   };
   const { error } = await sb.from("group_predictions").upsert(row, { onConflict: "user_id,grp" });
-  if (error) { toast("تعذّر الحفظ (مقفل؟).", true); return; }
+  if (error) { toast("No se pudo guardar. Puede estar bloqueado.", true); return; }
   state.groupPreds.set(g, row);
-  toast(grpName(g) + " — تم الحفظ ✓");
+  toast(grpName(g) + " — guardado ✓");
 }
 
-// الفرق التي وضعها المستخدم في المركز الثالث في كل مجموعة
+// Equipos que el usuario ubicó en tercer lugar en cada grupo
 function predictedThirds() {
   const arr = [];
   [...state.groupPreds.values()].forEach((p) => { if (p.pos3) arr.push(p.pos3); });
@@ -649,7 +666,7 @@ function renderThirds() {
   let chosen = (state.thirdPred?.teams || []).filter((t) => opts.includes(t));
 
   if (!opts.length) {
-    wrap.innerHTML = `<p class="thirds-count">رتّب مجموعاتك أولًا — ستظهر هنا الفرق التي وضعتها في المركز الثالث لتختار منها ٨.</p>`;
+    wrap.innerHTML = `<p class="thirds-count">Primero ordena tus grupos. Aquí aparecerán los equipos que pusiste en tercer lugar para escoger 8.</p>`;
     return;
   }
 
@@ -659,8 +676,8 @@ function renderThirds() {
   }).join("");
 
   wrap.innerHTML = `<div class="bonus-card">
-    <p class="hint">يتأهل ٨ من أصحاب المراكز الثالثة إلى دور الـ32. اختر ٨ من الفرق التي وضعتها في المركز الثالث. ${C.points_third} نقطة لكل فريق صحيح.</p>
-    <p class="thirds-count">المختار: <b id="tcount">${chosen.length}</b> / 8</p>
+    <p class="hint">Avanzan 8 de los mejores terceros a dieciseisavos. Escoge 8 de los equipos que pusiste en tercer lugar. ${C.points_third} puntos por cada equipo correcto.</p>
+    <p class="thirds-count">Seleccionados: <b id="tcount">${chosen.length}</b> / 8</p>
     <div class="thirds-chips">${chips}</div>
   </div>`;
 
@@ -670,11 +687,11 @@ function renderThirds() {
       const t = btn.dataset.team;
       const cur = new Set((state.thirdPred?.teams || []).filter((x) => opts.includes(x)));
       if (cur.has(t)) cur.delete(t);
-      else { if (cur.size >= 8) { toast("الحد الأقصى ٨ فرق.", true); return; } cur.add(t); }
+      else { if (cur.size >= 8) { toast("Máximo 8 equipos.", true); return; } cur.add(t); }
       const teams = [...cur];
       const { error } = await sb.from("third_predictions")
         .upsert({ user_id: state.user.id, teams, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
-      if (error) { toast("تعذّر الحفظ (مقفل؟).", true); return; }
+      if (error) { toast("No se pudo guardar. Puede estar bloqueado.", true); return; }
       state.thirdPred = { teams };
       btn.classList.toggle("sel");
       const c = $("#tcount"); if (c) c.textContent = cur.size;
@@ -683,9 +700,9 @@ function renderThirds() {
 }
 
 // =====================================================================
-//  بطاقة التوقّع (دور الـ32 → البطل) مبنية من توقعات المستخدم
+//  Mi cuadro (dieciseisavos → campeón) construido con las predicciones del usuario
 // =====================================================================
-// 32 منتخبًا = 12 أول مجموعة + 8 ثوالث مختارة + 12 ثاني مجموعة
+// 32 selecciones = 12 primeras de grupo + 8 terceros escogidos + 12 segundas de grupo
 function bracketOrdering() {
   const gn = [...new Set(state.matches.filter((m) => m.stage === "GROUP_STAGE" && m.grp).map((m) => m.grp))].sort();
   const w = gn.map((g) => state.groupPreds.get(g)?.pos1);
@@ -695,7 +712,7 @@ function bracketOrdering() {
   return [...w, ...t, ...r]; // 32
 }
 const BR_KEYS = ["r32", "r16", "qf", "sf", "f"];
-// يحسب مواجهات كل دور انطلاقًا من اختيارات المستخدم
+// Calcula los cruces de cada ronda a partir de las elecciones del usuario
 function computeRounds(ordering, picks) {
   const rounds = [];
   let cur = [];
@@ -729,14 +746,14 @@ function pruneBracket(ordering) {
 async function saveBracket(ordering) {
   const { error } = await sb.from("knockout_brackets")
     .upsert({ user_id: state.user.id, picks: state.bracketBuild, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
-  if (error) { toast("تعذّر الحفظ (مقفل؟).", true); return; }
+  if (error) { toast("No se pudo guardar. Puede estar bloqueado.", true); return; }
   await syncBonusFromBracket(ordering);
-  toast("تم حفظ البطاقة ✓");
+  toast("Cuadro guardado ✓");
 }
-// يحوّل البطاقة إلى توقع البطل/النهائي/نصف النهائي (لاحتساب النقاط عبر التوقعات الإضافية)
+// Convierte el cuadro en predicciones de campeón/finalistas/semifinalistas para puntuar extras
 async function syncBonusFromBracket(ordering) {
   const rounds = computeRounds(ordering, state.bracketBuild);
-  const sf = rounds[3]; // مباراتا نصف النهائي
+  const sf = rounds[3]; // semifinales
   const semis = [sf[0][0], sf[0][1], sf[1][0], sf[1][1]];
   const payload = {
     user_id: state.user.id, updated_at: new Date().toISOString(),
@@ -760,11 +777,11 @@ function renderBracket() {
     const w = groupNames.filter((g) => state.groupPreds.get(g)?.pos1 && state.groupPreds.get(g)?.pos2).length;
     const t = (state.thirdPred?.teams || []).filter(Boolean).length;
     const need = [];
-    if (w < groupNames.length) need.push(`رتّب جميع المجموعات في تبويب «ترتيب المجموعات» (أكملت ${w} من ${groupNames.length})`);
-    if (t < 8) need.push(`اختر ٨ من أصحاب المركز الثالث (اخترت ${t})`);
+    if (w < groupNames.length) need.push(`Ordena todos los grupos en la pestaña "Clasificación grupos" (completaste ${w} de ${groupNames.length})`);
+    if (t < 8) need.push(`Escoge 8 de los terceros (escogiste ${t})`);
     el.innerHTML =
-      `<p class="note">ابنِ بطاقتك من توقعاتك: المتأهلان الأول والثاني من كل مجموعة + ٨ ثوالث، ثم اختر الفائز في كل مواجهة حتى البطل.</p>` +
-      `<div class="empty">للبدء:<br/>• ${need.join("<br/>• ")}</div>`;
+      `<p class="note">Construye tu cuadro con tus predicciones: primero y segundo de cada grupo + 8 mejores terceros; luego escoge el ganador de cada cruce hasta llegar al campeón.</p>` +
+      `<div class="empty">Para empezar:<br/>• ${need.join("<br/>• ")}</div>`;
     return;
   }
 
@@ -772,7 +789,7 @@ function renderBracket() {
   pruneBracket(ordering);
   const rounds = computeRounds(ordering, state.bracketBuild);
   const champion = state.bracketBuild["f-0"] && rounds[4][0].includes(state.bracketBuild["f-0"]) ? state.bracketBuild["f-0"] : null;
-  const titles = ["دور الـ32", "دور الـ16", "ربع النهائي", "نصف النهائي", "النهائي"];
+  const titles = ["Dieciseisavos", "Octavos", "Cuartos", "Semifinales", "Final"];
 
   const teamBtn = (team, L, idx) => {
     if (!team) return `<span class="bteam empty">—</span>`;
@@ -786,12 +803,12 @@ function renderBracket() {
   }).join("");
 
   const champHtml = champion
-    ? `<div class="champ"><span class="champ-l">🏆 البطل المتوقّع</span><span class="champ-t">${flagImg(champion, "crest")}${tn(champion)}</span></div>`
-    : `<div class="champ muted">🏆 اختر الفائز في كل دور حتى تصل إلى البطل</div>`;
+    ? `<div class="champ"><span class="champ-l">🏆 Campeón pronosticado</span><span class="champ-t">${flagImg(champion, "crest")}${tn(champion)}</span></div>`
+    : `<div class="champ muted">🏆 Escoge el ganador en cada ronda hasta llegar al campeón</div>`;
 
   const note = locked
-    ? `<p class="note">بطاقة التوقّع مقفلة (انطلقت البطولة).</p>`
-    : `<p class="note">اختر الفائز في كل مواجهة وصولًا إلى البطل. تُبنى المواجهات من توقعاتك (الأول/الثاني/الثوالث)، وتُحدّث تلقائيًا توقع البطل وأصحاب النهائي ونصف النهائي. تُقفل عند أول مباراة.</p>`;
+    ? `<p class="note">El cuadro está bloqueado porque la competencia ya inició.</p>`
+    : `<p class="note">Escoge el ganador de cada cruce hasta llegar al campeón. Los cruces se construyen con tus predicciones de grupos (primeros, segundos y terceros) y actualizan automáticamente el campeón, finalistas y semifinalistas. Se bloquea al iniciar el primer partido.</p>`;
 
   el.innerHTML = note + champHtml + `<div class="bracket">${roundsHtml}</div>`;
 
@@ -808,7 +825,7 @@ function renderBracket() {
 }
 
 // =====================================================================
-//  المجموعات والجدول (معلومات فقط)
+//  Grupos y calendario (solo información)
 // =====================================================================
 function renderInfo() {
   const el = $("#tab-info");
@@ -832,7 +849,7 @@ function renderInfo() {
       <div class="group-head"><h3>${esc(grpName(g))}</h3><span class="chev">▾</span></div>
       <div class="group-body">
         <table class="gtable">
-          <thead><tr><th></th><th>الفريق</th><th>لعب</th><th>فاز</th><th>تعادل</th><th>خسر</th><th>الفارق</th><th>نقاط</th></tr></thead>
+          <thead><tr><th></th><th>Equipo</th><th>PJ</th><th>G</th><th>E</th><th>P</th><th>DG</th><th>Pts</th></tr></thead>
           <tbody>${body}</tbody>
         </table>
       </div>
@@ -841,7 +858,7 @@ function renderInfo() {
 
   const sorted = [...state.matches].sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
   const byDay = {};
-  sorted.forEach((m) => { (byDay[saDateKey(m.kickoff)] ??= []).push(m); });
+  sorted.forEach((m) => { (byDay[appDateKey(m.kickoff)] ??= []).push(m); });
 
   const schedHtml = Object.keys(byDay).sort().map((day) => {
     const items = byDay[day].map((m) => {
@@ -851,9 +868,9 @@ function renderInfo() {
       const scoreOrVs = finished || (live && m.home_score != null)
         ? `<b class="sc">${m.home_score}–${m.away_score}</b>`
         : `<span class="vs">×</span>`;
-      const flag = live ? `<span class="pill live">● مباشر</span>` : finished ? `<span class="pill points">انتهت</span>` : "";
+      const flag = live ? `<span class="pill live">● En vivo</span>` : finished ? `<span class="pill points">Finalizado</span>` : "";
       return `<div class="srow">
-        <span class="stime">${fmtSATime(m.kickoff)}</span>
+        <span class="stime">${fmtAppTime(m.kickoff)}</span>
         <span class="steams">
           <span class="sh">${flagImg(m.home_team)}${tn(m.home_team)}</span>
           ${scoreOrVs}
@@ -862,14 +879,14 @@ function renderInfo() {
         <span class="stag">${esc(label)} ${flag}</span>
       </div>`;
     }).join("");
-    return `<div class="sday"><div class="sday-head">${fmtSADate(byDay[day][0].kickoff)}</div>${items}</div>`;
+    return `<div class="sday"><div class="sday-head">${fmtAppDate(byDay[day][0].kickoff)}</div>${items}</div>`;
   }).join("");
 
   el.innerHTML =
-    `<p class="note">تتحدّث جداول المجموعات تلقائيًا مع ورود النتائج (المتأهلان الأولان مظلّلان). كل المواعيد بتوقيت <b>السعودية (UTC+3)</b>.</p>` +
+    `<p class="note">Las tablas de grupos se actualizan automáticamente cuando llegan los resultados. Los dos primeros aparecen resaltados. Todos los horarios están en hora de <b>Colombia</b>.</p>` +
     `<div class="seg info-seg">
-       <button class="seg-btn active" data-view="tables">جداول المجموعات</button>
-       <button class="seg-btn" data-view="schedule">الجدول الكامل</button>
+       <button class="seg-btn active" data-view="tables">Tablas de grupos</button>
+       <button class="seg-btn" data-view="schedule">Calendario completo</button>
      </div>
      <div id="info-tables">${groupsHtml}</div>
      <div id="info-schedule" class="hidden">${schedHtml}</div>`;
@@ -887,41 +904,41 @@ function renderInfo() {
 }
 
 // =====================================================================
-//  الترتيب العام
+//  Tabla general
 // =====================================================================
 async function renderBoard() {
   const el = $("#tab-board");
-  el.innerHTML = `<div class="empty">يتم حساب النقاط…</div>`;
+  el.innerHTML = `<div class="empty">Calculando puntos…</div>`;
   const { data, error } = await sb.rpc("get_leaderboard");
-  if (error) { el.innerHTML = `<div class="empty">🏆 يظهر الترتيب عند انطلاق كأس العالم وبدء وصول النتائج.</div>`; return; }
-  if (!data?.length) { el.innerHTML = `<div class="empty">🏆 يظهر الترتيب عند انطلاق كأس العالم. سجّلوا استراحة 6 وابدؤوا التوقّع!</div>`; return; }
+  if (error) { el.innerHTML = `<div class="empty">🏆 La tabla aparecerá cuando inicie el Mundial y empiecen a llegar resultados.</div>`; return; }
+  if (!data?.length) { el.innerHTML = `<div class="empty">🏆 La tabla aparecerá cuando inicie el Mundial. Regístrense y empiecen a pronosticar.</div>`; return; }
 
   const rows = data.map((u, i) => {
     const me = u.user_id === state.user.id ? " me" : "";
     const parts = [
-      `${u.exact_count} تامة`,
-      `${u.result_count} نتيجة`,
-      `${u.bonus_points} إضافية`,
+      `${u.exact_count} exactos`,
+      `${u.result_count} resultados`,
+      `${u.bonus_points} extra`,
     ];
-    if (u.group_points) parts.push(`${u.group_points} مجموعات`);
-    if (u.third_points) parts.push(`${u.third_points} ثوالث`);
-    if (u.bracket_points) parts.push(`${u.bracket_points} إقصائي`);
+    if (u.group_points) parts.push(`${u.group_points} grupos`);
+    if (u.third_points) parts.push(`${u.third_points} terceros`);
+    if (u.bracket_points) parts.push(`${u.bracket_points} eliminatorias`);
     return `<div class="row${me}">
       <div class="rank">${i + 1}</div>
-      <div class="name">${esc(u.display_name)}${me ? " (أنت)" : ""}
+      <div class="name">${esc(u.display_name)}${me ? " (tú)" : ""}
         <small>${parts.join(" · ")}</small>
       </div>
-      <div class="total">${u.total_points}<span> نقطة</span></div>
+      <div class="total">${u.total_points}<span> puntos</span></div>
     </div>`;
   }).join("");
-  el.innerHTML = `<p class="note">يتحدّث تلقائيًا مع ورود النتائج.</p><div class="board">${rows}</div>`;
+  el.innerHTML = `<p class="note">Se actualiza automáticamente con los resultados.</p><div class="board">${rows}</div>`;
 }
 
 function emptyState() {
-  return `<div class="empty">لم تُحمّل المباريات بعد.<br/>تظهر تلقائيًا عند أول تشغيل لوظيفة النتائج.</div>`;
+  return `<div class="empty">Aún no se han cargado los partidos.<br/>Aparecerán automáticamente cuando se ejecute por primera vez la función de resultados.</div>`;
 }
 
-// ---------- إقلاع ----------
+// ---------- Arranque ----------
 (async () => {
   const { data } = await sb.auth.getSession();
   if (data.session?.user) {
