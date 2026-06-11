@@ -66,16 +66,16 @@ function fromOpenfootball(m) {
   const stage = m.group
     ? "GROUP_STAGE"
     : m.round === "Final"
-    ? "FINAL"
-    : m.round === "Semi-final"
-    ? "SEMI_FINALS"
-    : m.round === "Quarter-final"
-    ? "QUARTER_FINALS"
-    : m.round === "Round of 16"
-    ? "LAST_16"
-    : m.round === "Round of 32"
-    ? "LAST_32"
-    : "THIRD_PLACE";
+      ? "FINAL"
+      : m.round === "Semi-final"
+        ? "SEMI_FINALS"
+        : m.round === "Quarter-final"
+          ? "QUARTER_FINALS"
+          : m.round === "Round of 16"
+            ? "LAST_16"
+            : m.round === "Round of 32"
+              ? "LAST_32"
+              : "THIRD_PLACE";
   const id = hashId(`${m.date}-${m.team1}-${m.team2}`);
   const sc = m.score?.ft;
   const home_score = Array.isArray(sc) ? sc[0] : null;
@@ -209,7 +209,56 @@ export default async function handler() {
   if (!rows.length) return new Response("No matches fetched", { status: 502 });
 
   // Upsert all matches.
-  const { error: upErr } = await supabase.from("matches").upsert(rows, { onConflict: "id" });
+  // Upsert all matches, but never erase a score that was already stored.
+  // Some feeds can temporarily return a finished match without fullTime scores.
+  // If that happens, we preserve the previous score/status in Supabase.
+  const ids = rows.map((r) => r.id);
+
+  const { data: existingRows, error: existingErr } = await supabase
+    .from("matches")
+    .select("id,status,home_score,away_score,winner")
+    .in("id", ids);
+
+  if (existingErr) {
+    console.warn("existing matches lookup failed:", existingErr.message);
+  }
+
+  const existingById = new Map((existingRows || []).map((m) => [m.id, m]));
+
+  const safeRows = rows.map((r) => {
+    const old = existingById.get(r.id);
+
+    const incomingHasScore = r.home_score != null && r.away_score != null;
+    const oldHasScore = old?.home_score != null && old?.away_score != null;
+
+    // If we already have a score and the new API response comes without one,
+    // keep the stored score instead of overwriting it with null.
+    if (oldHasScore && !incomingHasScore) {
+      return {
+        ...r,
+        status: old.status || r.status,
+        home_score: old.home_score,
+        away_score: old.away_score,
+        winner: old.winner || r.winner,
+      };
+    }
+
+    // If the old row is already FINISHED but the new response regresses,
+    // keep the FINISHED status and stored score.
+    if (old?.status === "FINISHED" && r.status !== "FINISHED" && oldHasScore) {
+      return {
+        ...r,
+        status: "FINISHED",
+        home_score: old.home_score,
+        away_score: old.away_score,
+        winner: old.winner || r.winner,
+      };
+    }
+
+    return r;
+  });
+
+  const { error: upErr } = await supabase.from("matches").upsert(safeRows, { onConflict: "id" });
   if (upErr) {
     console.error("matches upsert error:", upErr);
     return new Response("DB upsert failed: " + upErr.message, { status: 500 });
@@ -225,7 +274,7 @@ export default async function handler() {
   }
 
   // Tournament outcomes for bonus scoring (core — always present).
-  const outcomes = deriveOutcomes(rows);
+  const outcomes = deriveOutcomes(safeRows);
   await supabase
     .from("tournament_results")
     .update({
@@ -239,7 +288,7 @@ export default async function handler() {
   // Extra-prediction outcomes (group standings + best thirds). These depend on
   // predictions.sql having been run; if it hasn't, fail soft so the core
   // matches/bonus pipeline keeps working.
-  const { groupRows, bestThirds } = computeGroupTables(rows);
+  const { groupRows, bestThirds } = computeGroupTables(safeRows);
   const { error: btErr } = await supabase
     .from("tournament_results")
     .update({ best_thirds: bestThirds })
@@ -250,7 +299,7 @@ export default async function handler() {
     if (grErr) console.warn("group_results upsert skipped (run predictions.sql?):", grErr.message);
   }
 
-  const finished = rows.filter((r) => r.status === "FINISHED").length;
+  const finished = safeRows.filter((r) => r.status === "FINISHED").length;
   const summary = `OK — source=${source}, matches=${rows.length}, finished=${finished}, champion=${outcomes.champion ?? "—"}`;
   console.log(summary);
   return new Response(summary, { status: 200 });
