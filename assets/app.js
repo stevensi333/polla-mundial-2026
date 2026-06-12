@@ -703,122 +703,409 @@ function renderThirds() {
 //  Mi cuadro (dieciseisavos → campeón) construido con las predicciones del usuario
 // =====================================================================
 // 32 selecciones = 12 primeras de grupo + 8 terceros escogidos + 12 segundas de grupo
-function bracketOrdering() {
-  const gn = [...new Set(state.matches.filter((m) => m.stage === "GROUP_STAGE" && m.grp).map((m) => m.grp))].sort();
-  const w = gn.map((g) => state.groupPreds.get(g)?.pos1);
-  const r = gn.map((g) => state.groupPreds.get(g)?.pos2);
-  const t = (state.thirdPred?.teams || []).filter(Boolean).slice(0, 8);
-  if (gn.length < 12 || w.some((x) => !x) || r.some((x) => !x) || t.length < 8) return null;
-  return [...w, ...t, ...r]; // 32
+// =====================================================================
+//  Mi cuadro: Ronda de 32 oficial 2026
+//  Usa la clasificación de grupos del usuario + sus 8 mejores terceros.
+// =====================================================================
+
+const GROUP_LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
+
+function groupNameByLetter(letter) {
+  const groupNames = [...new Set(
+    state.matches
+      .filter((m) => m.stage === "GROUP_STAGE" && m.grp)
+      .map((m) => m.grp)
+  )];
+
+  return groupNames.find((g) => {
+    const s = String(g).toUpperCase().trim();
+    return s === letter || s.endsWith(" " + letter) || s.endsWith(letter);
+  });
 }
-const BR_KEYS = ["r32", "r16", "qf", "sf", "f"];
-// Calcula los cruces de cada ronda a partir de las elecciones del usuario
-function computeRounds(ordering, picks) {
-  const rounds = [];
-  let cur = [];
-  for (let i = 0; i < 16; i++) cur.push([ordering[i], ordering[31 - i]]);
-  rounds.push(cur);
-  for (let L = 0; L < 4; L++) {
-    const winners = cur.map((m, idx) => {
-      let w = picks[BR_KEYS[L] + "-" + idx];
-      return w && m.includes(w) ? w : null;
-    });
-    const next = [];
-    for (let j = 0; j < winners.length / 2; j++) next.push([winners[2 * j], winners[2 * j + 1]]);
-    rounds.push(next);
-    cur = next;
+
+function teamByCode(code) {
+  const m = String(code).match(/^([123])([A-L])$/);
+  if (!m) return null;
+
+  const pos = Number(m[1]);
+  const letter = m[2];
+  const grp = groupNameByLetter(letter);
+  if (!grp) return null;
+
+  const pred = state.groupPreds.get(grp);
+  if (!pred) return null;
+
+  if (pos === 1) return pred.pos1 || null;
+  if (pos === 2) return pred.pos2 || null;
+  if (pos === 3) return pred.pos3 || null;
+
+  return null;
+}
+
+const R32_TEMPLATE = [
+  { id: 73, home: { code: "2A" }, away: { code: "2B" } },
+  { id: 74, home: { code: "1E" }, away: { thirdSlot: 74, allowed: ["A", "B", "C", "D", "F"] } },
+  { id: 75, home: { code: "1F" }, away: { code: "2C" } },
+  { id: 76, home: { code: "1C" }, away: { code: "2F" } },
+  { id: 77, home: { code: "1I" }, away: { thirdSlot: 77, allowed: ["C", "D", "F", "G", "H"] } },
+  { id: 78, home: { code: "2E" }, away: { code: "2I" } },
+  { id: 79, home: { code: "1A" }, away: { thirdSlot: 79, allowed: ["C", "E", "F", "H", "I"] } },
+  { id: 80, home: { code: "1L" }, away: { thirdSlot: 80, allowed: ["E", "H", "I", "J", "K"] } },
+  { id: 81, home: { code: "1D" }, away: { thirdSlot: 81, allowed: ["B", "E", "F", "I", "J"] } },
+  { id: 82, home: { code: "1G" }, away: { thirdSlot: 82, allowed: ["A", "E", "H", "I", "J"] } },
+  { id: 83, home: { code: "2K" }, away: { code: "2L" } },
+  { id: 84, home: { code: "1H" }, away: { code: "2J" } },
+  { id: 85, home: { code: "1B" }, away: { thirdSlot: 85, allowed: ["E", "F", "G", "I", "J"] } },
+  { id: 86, home: { code: "1J" }, away: { code: "2H" } },
+  { id: 87, home: { code: "1K" }, away: { thirdSlot: 87, allowed: ["D", "E", "I", "J", "L"] } },
+  { id: 88, home: { code: "2D" }, away: { code: "2G" } },
+];
+
+const NEXT_ROUNDS_TEMPLATE = {
+  r16: [
+    { id: 89, homeWin: 74, awayWin: 77 },
+    { id: 90, homeWin: 73, awayWin: 75 },
+    { id: 91, homeWin: 76, awayWin: 78 },
+    { id: 92, homeWin: 79, awayWin: 80 },
+    { id: 93, homeWin: 83, awayWin: 84 },
+    { id: 94, homeWin: 81, awayWin: 82 },
+    { id: 95, homeWin: 86, awayWin: 88 },
+    { id: 96, homeWin: 85, awayWin: 87 },
+  ],
+  qf: [
+    { id: 97, homeWin: 89, awayWin: 90 },
+    { id: 98, homeWin: 93, awayWin: 94 },
+    { id: 99, homeWin: 91, awayWin: 92 },
+    { id: 100, homeWin: 95, awayWin: 96 },
+  ],
+  sf: [
+    { id: 101, homeWin: 97, awayWin: 98 },
+    { id: 102, homeWin: 99, awayWin: 100 },
+  ],
+  final: [
+    { id: 104, homeWin: 101, awayWin: 102 },
+  ],
+};
+
+function bracketKey(matchId) {
+  return "m" + matchId;
+}
+
+function selectedThirdTeamsByGroup() {
+  const selected = new Set(state.thirdPred?.teams || []);
+  const arr = [];
+
+  GROUP_LETTERS.forEach((letter) => {
+    const team = teamByCode("3" + letter);
+    if (team && selected.has(team)) {
+      arr.push({ letter, team });
+    }
+  });
+
+  return arr;
+}
+
+function assignThirdsToOfficialSlots() {
+  const thirds = selectedThirdTeamsByGroup();
+  const slots = R32_TEMPLATE
+    .filter((m) => m.away?.thirdSlot)
+    .map((m) => ({
+      matchId: m.id,
+      allowed: m.away.allowed,
+    }));
+
+  if (thirds.length !== 8) {
+    return {
+      ok: false,
+      reason: `Debes escoger exactamente 8 mejores terceros. Ahora tienes ${thirds.length}.`,
+      assignments: new Map(),
+    };
   }
-  return rounds; // [r32(16), r16(8), qf(4), sf(2), f(1)]
+
+  // Backtracking para asignar cada mejor tercero a un partido permitido.
+  // Evita errores como poner un tercero del Grupo A en un cruce donde A no está permitido.
+  const slotOrder = [...slots].sort((a, b) => {
+    const ca = thirds.filter((t) => a.allowed.includes(t.letter)).length;
+    const cb = thirds.filter((t) => b.allowed.includes(t.letter)).length;
+    return ca - cb;
+  });
+
+  const usedTeams = new Set();
+  const assignments = new Map();
+
+  function backtrack(i) {
+    if (i >= slotOrder.length) return true;
+
+    const slot = slotOrder[i];
+    const candidates = thirds.filter(
+      (t) => slot.allowed.includes(t.letter) && !usedTeams.has(t.team)
+    );
+
+    for (const c of candidates) {
+      usedTeams.add(c.team);
+      assignments.set(slot.matchId, c.team);
+
+      if (backtrack(i + 1)) return true;
+
+      assignments.delete(slot.matchId);
+      usedTeams.delete(c.team);
+    }
+
+    return false;
+  }
+
+  const ok = backtrack(0);
+
+  if (!ok) {
+    return {
+      ok: false,
+      reason: "Los 8 terceros seleccionados no se pueden ubicar respetando los grupos permitidos del cuadro oficial.",
+      assignments: new Map(),
+    };
+  }
+
+  return { ok: true, assignments };
 }
-function pruneBracket(ordering) {
+
+function hasCompleteGroupPredictions() {
+  const groupNames = [...new Set(
+    state.matches
+      .filter((m) => m.stage === "GROUP_STAGE" && m.grp)
+      .map((m) => m.grp)
+  )].sort();
+
+  if (groupNames.length < 12) return false;
+
+  return groupNames.every((g) => {
+    const p = state.groupPreds.get(g);
+    return p?.pos1 && p?.pos2 && p?.pos3 && p?.pos4;
+  });
+}
+
+function resolveBracketEntry(entry, thirdAssignments) {
+  if (!entry) return null;
+
+  if (entry.code) {
+    return teamByCode(entry.code);
+  }
+
+  if (entry.thirdSlot) {
+    return thirdAssignments.get(entry.thirdSlot) || null;
+  }
+
+  return null;
+}
+
+function officialR32Matches(thirdAssignments) {
+  return R32_TEMPLATE.map((m) => ({
+    id: m.id,
+    teams: [
+      resolveBracketEntry(m.home, thirdAssignments),
+      resolveBracketEntry(m.away, thirdAssignments),
+    ],
+  }));
+}
+
+function officialNextRoundMatches(template, picks) {
+  return template.map((m) => ({
+    id: m.id,
+    teams: [
+      picks[bracketKey(m.homeWin)] || null,
+      picks[bracketKey(m.awayWin)] || null,
+    ],
+  }));
+}
+
+function computeOfficialRounds(thirdAssignments, picks) {
+  const r32 = officialR32Matches(thirdAssignments);
+  const r16 = officialNextRoundMatches(NEXT_ROUNDS_TEMPLATE.r16, picks);
+  const qf = officialNextRoundMatches(NEXT_ROUNDS_TEMPLATE.qf, picks);
+  const sf = officialNextRoundMatches(NEXT_ROUNDS_TEMPLATE.sf, picks);
+  const final = officialNextRoundMatches(NEXT_ROUNDS_TEMPLATE.final, picks);
+
+  return [r32, r16, qf, sf, final];
+}
+
+function pruneBracketOfficial(thirdAssignments) {
   let changed = true;
+
   while (changed) {
     changed = false;
-    const rounds = computeRounds(ordering, state.bracketBuild);
-    for (let L = 0; L < 5; L++) {
-      rounds[L].forEach((m, idx) => {
-        const k = BR_KEYS[L] + "-" + idx;
-        if (state.bracketBuild[k] && !m.includes(state.bracketBuild[k])) { delete state.bracketBuild[k]; changed = true; }
-      });
-    }
+    const rounds = computeOfficialRounds(thirdAssignments, state.bracketBuild);
+
+    rounds.flat().forEach((m) => {
+      const key = bracketKey(m.id);
+      const pick = state.bracketBuild[key];
+
+      if (pick && !m.teams.includes(pick)) {
+        delete state.bracketBuild[key];
+        changed = true;
+      }
+    });
   }
 }
-async function saveBracket(ordering) {
+
+async function saveBracketOfficial(thirdAssignments) {
   const { error } = await sb.from("knockout_brackets")
-    .upsert({ user_id: state.user.id, picks: state.bracketBuild, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
-  if (error) { toast("No se pudo guardar. Puede estar bloqueado.", true); return; }
-  await syncBonusFromBracket(ordering);
+    .upsert(
+      {
+        user_id: state.user.id,
+        picks: state.bracketBuild,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" }
+    );
+
+  if (error) {
+    toast("No se pudo guardar. Puede estar bloqueado.", true);
+    return;
+  }
+
+  await syncBonusFromBracketOfficial(thirdAssignments);
   toast("Cuadro guardado ✓");
 }
-// Convierte el cuadro en predicciones de campeón/finalistas/semifinalistas para puntuar extras
-async function syncBonusFromBracket(ordering) {
-  const rounds = computeRounds(ordering, state.bracketBuild);
-  const sf = rounds[3]; // semifinales
-  const semis = [sf[0][0], sf[0][1], sf[1][0], sf[1][1]];
+
+async function syncBonusFromBracketOfficial(thirdAssignments) {
+  const rounds = computeOfficialRounds(thirdAssignments, state.bracketBuild);
+  const sf = rounds[3];
+
+  const semifinalists = [
+    sf?.[0]?.teams?.[0],
+    sf?.[0]?.teams?.[1],
+    sf?.[1]?.teams?.[0],
+    sf?.[1]?.teams?.[1],
+  ];
+
   const payload = {
-    user_id: state.user.id, updated_at: new Date().toISOString(),
-    champion: state.bracketBuild["f-0"] || null,
-    finalist1: state.bracketBuild["sf-0"] || null,
-    finalist2: state.bracketBuild["sf-1"] || null,
-    semifinalist1: semis[0] || null, semifinalist2: semis[1] || null,
-    semifinalist3: semis[2] || null, semifinalist4: semis[3] || null,
+    user_id: state.user.id,
+    updated_at: new Date().toISOString(),
+    champion: state.bracketBuild[bracketKey(104)] || null,
+    finalist1: state.bracketBuild[bracketKey(101)] || null,
+    finalist2: state.bracketBuild[bracketKey(102)] || null,
+    semifinalist1: semifinalists[0] || null,
+    semifinalist2: semifinalists[1] || null,
+    semifinalist3: semifinalists[2] || null,
+    semifinalist4: semifinalists[3] || null,
   };
-  const { error } = await sb.from("bonus_predictions").upsert(payload, { onConflict: "user_id" });
-  if (!error) state.bonus = { ...(state.bonus || {}), ...payload };
+
+  const { error } = await sb.from("bonus_predictions")
+    .upsert(payload, { onConflict: "user_id" });
+
+  if (!error) {
+    state.bonus = { ...(state.bonus || {}), ...payload };
+  }
 }
 
 function renderBracket() {
   const el = $("#tab-bracket");
-  const groupNames = [...new Set(state.matches.filter((m) => m.stage === "GROUP_STAGE" && m.grp).map((m) => m.grp))].sort();
-  if (!groupNames.length) { el.innerHTML = emptyState(); return; }
 
-  const ordering = bracketOrdering();
-  if (!ordering) {
-    const w = groupNames.filter((g) => state.groupPreds.get(g)?.pos1 && state.groupPreds.get(g)?.pos2).length;
-    const t = (state.thirdPred?.teams || []).filter(Boolean).length;
+  const groupNames = [...new Set(
+    state.matches
+      .filter((m) => m.stage === "GROUP_STAGE" && m.grp)
+      .map((m) => m.grp)
+  )].sort();
+
+  if (!groupNames.length) {
+    el.innerHTML = emptyState();
+    return;
+  }
+
+  const completeGroups = hasCompleteGroupPredictions();
+  const thirdCheck = assignThirdsToOfficialSlots();
+
+  if (!completeGroups || !thirdCheck.ok) {
+    const completed = groupNames.filter((g) => {
+      const p = state.groupPreds.get(g);
+      return p?.pos1 && p?.pos2 && p?.pos3 && p?.pos4;
+    }).length;
+
     const need = [];
-    if (w < groupNames.length) need.push(`Ordena todos los grupos en la pestaña "Clasificación grupos" (completaste ${w} de ${groupNames.length})`);
-    if (t < 8) need.push(`Escoge 8 de los terceros (escogiste ${t})`);
+
+    if (!completeGroups) {
+      need.push(`Ordena todos los grupos en “Clasificación grupos” (${completed} de ${groupNames.length} completos).`);
+    }
+
+    if (!thirdCheck.ok) {
+      need.push(thirdCheck.reason);
+    }
+
     el.innerHTML =
-      `<p class="note">Construye tu cuadro con tus predicciones: primero y segundo de cada grupo + 8 mejores terceros; luego escoge el ganador de cada cruce hasta llegar al campeón.</p>` +
+      `<p class="note">Para armar tu cuadro debes ordenar los grupos y elegir los 8 mejores terceros.</p>` +
       `<div class="empty">Para empezar:<br/>• ${need.join("<br/>• ")}</div>`;
+
     return;
   }
 
   const locked = bonusLocked();
-  pruneBracket(ordering);
-  const rounds = computeRounds(ordering, state.bracketBuild);
-  const champion = state.bracketBuild["f-0"] && rounds[4][0].includes(state.bracketBuild["f-0"]) ? state.bracketBuild["f-0"] : null;
-  const titles = ["Dieciseisavos", "Octavos", "Cuartos", "Semifinales", "Final"];
+  const thirdAssignments = thirdCheck.assignments;
 
-  const teamBtn = (team, L, idx) => {
+  pruneBracketOfficial(thirdAssignments);
+
+  const rounds = computeOfficialRounds(thirdAssignments, state.bracketBuild);
+  const champion = state.bracketBuild[bracketKey(104)] || null;
+
+  const titles = [
+    "Ronda de 32",
+    "Octavos de final",
+    "Cuartos de final",
+    "Semifinales",
+    "Final",
+  ];
+
+  const teamBtn = (team, matchId) => {
     if (!team) return `<span class="bteam empty">—</span>`;
-    const chosen = state.bracketBuild[BR_KEYS[L] + "-" + idx] === team;
-    return `<button class="bteam${chosen ? " sel" : ""}" data-key="${BR_KEYS[L]}" data-idx="${idx}" data-team="${esc(team)}" ${locked ? "disabled" : ""}>${flagImg(team, "crest sm")}<span>${tn(team)}</span></button>`;
+
+    const chosen = state.bracketBuild[bracketKey(matchId)] === team;
+
+    return `
+      <button class="bteam${chosen ? " sel" : ""}" data-match="${matchId}" data-team="${esc(team)}" ${locked ? "disabled" : ""}>
+        ${flagImg(team, "crest sm")}
+        <span>${tn(team)}</span>
+      </button>
+    `;
   };
 
-  const roundsHtml = rounds.map((matches, L) => {
-    const ms = matches.map((m, idx) => `<div class="bmatch">${teamBtn(m[0], L, idx)}<span class="bvs">×</span>${teamBtn(m[1], L, idx)}</div>`).join("");
-    return `<div class="bround"><h4 class="bround-h">${titles[L]}</h4>${ms}</div>`;
+  const matchHtml = (m) => `
+    <div class="bmatch" data-match="${m.id}">
+      <div class="bmatch-no">Partido ${m.id}</div>
+      ${teamBtn(m.teams[0], m.id)}
+      <span class="bvs">×</span>
+      ${teamBtn(m.teams[1], m.id)}
+    </div>
+  `;
+
+  const roundsHtml = rounds.map((matches, idx) => {
+    const ms = matches.map(matchHtml).join("");
+
+    return `
+      <div class="bround">
+        <h4 class="bround-h">${titles[idx]}</h4>
+        ${ms}
+      </div>
+    `;
   }).join("");
 
   const champHtml = champion
     ? `<div class="champ"><span class="champ-l">🏆 Campeón pronosticado</span><span class="champ-t">${flagImg(champion, "crest")}${tn(champion)}</span></div>`
-    : `<div class="champ muted">🏆 Escoge el ganador en cada ronda hasta llegar al campeón</div>`;
+    : `<div class="champ muted">🏆 Elige los ganadores hasta llegar al campeón</div>`;
 
   const note = locked
-    ? `<p class="note">El cuadro está bloqueado porque la competencia ya inició.</p>`
-    : `<p class="note">Escoge el ganador de cada cruce hasta llegar al campeón. Los cruces se construyen con tus predicciones de grupos (primeros, segundos y terceros) y actualizan automáticamente el campeón, finalistas y semifinalistas. Se bloquea al iniciar el primer partido.</p>`;
+    ? `<p class="note">Mi cuadro está bloqueado.</p>`
+    : `<p class="note">Este cuadro respeta los cruces oficiales de los partidos 73 a 104. Los mejores terceros se ubican solo en los cruces donde su grupo está permitido.</p>`;
 
   el.innerHTML = note + champHtml + `<div class="bracket">${roundsHtml}</div>`;
 
   if (locked) return;
+
   $$(".bteam", el).forEach((btn) => {
     if (btn.disabled || btn.classList.contains("empty")) return;
+
     btn.addEventListener("click", async () => {
-      state.bracketBuild[btn.dataset.key + "-" + btn.dataset.idx] = btn.dataset.team;
-      pruneBracket(ordering);
-      await saveBracket(ordering);
+      const matchId = Number(btn.dataset.match);
+      state.bracketBuild[bracketKey(matchId)] = btn.dataset.team;
+
+      pruneBracketOfficial(thirdAssignments);
+      await saveBracketOfficial(thirdAssignments);
       renderBracket();
     });
   });
