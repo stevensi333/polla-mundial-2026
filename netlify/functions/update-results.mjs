@@ -265,13 +265,13 @@ export default async function handler() {
   }
 
   // Bonus lock = first kickoff.
-  const firstKickoff = rows
-    .map((r) => r.kickoff)
-    .filter(Boolean)
-    .sort()[0];
-  if (firstKickoff) {
-    await supabase.from("app_config").update({ bonus_locks_at: firstKickoff }).eq("id", 1);
-  }
+  //const firstKickoff = rows
+  //.map((r) => r.kickoff)
+  //.filter(Boolean)
+  // .sort()[0];
+  //if (firstKickoff) {
+  // await supabase.from("app_config").update({ bonus_locks_at: firstKickoff }).eq("id", 1);
+  //}
 
   // Tournament outcomes for bonus scoring (core — always present).
   const outcomes = deriveOutcomes(safeRows);
