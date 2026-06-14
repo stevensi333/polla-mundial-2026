@@ -206,6 +206,22 @@ export default async function handler() {
   });
 
   const { source, rows } = await fetchMatches(FOOTBALL_DATA_TOKEN);
+  // Si football-data.org falla y entra el respaldo openfootball,
+// no insertamos partidos negativos si ya existen partidos oficiales positivos.
+// Esto evita duplicados con predicciones.
+if (source !== "football-data.org") {
+  const { count: positiveMatchCount, error: countErr } = await supabase
+    .from("matches")
+    .select("id", { count: "exact", head: true })
+    .gt("id", 0);
+
+  if (!countErr && (positiveMatchCount || 0) > 0) {
+    return new Response(
+      `OK — source=${source} omitido; se conservan los partidos oficiales existentes.`,
+      { status: 200 }
+    );
+  }
+}
   if (!rows.length) return new Response("No matches fetched", { status: 502 });
 
   // Upsert all matches.
