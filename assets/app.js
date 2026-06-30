@@ -274,15 +274,50 @@ async function loadExtraPreds() {
   });
 }
 
+async function fetchAllPredictions() {
+  const pageSize = 1000;
+  let from = 0;
+  let all = [];
+
+  while (true) {
+    const to = from + pageSize - 1;
+
+    const { data, error } = await sb
+      .from("predictions")
+      .select("match_id,user_id,home_score,away_score")
+      .order("match_id", { ascending: true })
+      .order("user_id", { ascending: true })
+      .range(from, to);
+
+    if (error) {
+      console.error("predictions load error:", error);
+      throw error;
+    }
+
+    const rows = data || [];
+    all = all.concat(rows);
+
+    if (rows.length < pageSize) break;
+
+    from += pageSize;
+  }
+
+  return all;
+}
+
 async function loadPredictions() {
-  const { data } = await sb.from("predictions").select("match_id,user_id,home_score,away_score");
+  const data = await fetchAllPredictions();
+
   state.myPreds = new Map();
   state.othersPreds = new Map();
-  (data || []).forEach((p) => {
+
+  data.forEach((p) => {
     if (p.user_id === state.user.id) {
       state.myPreds.set(p.match_id, p);
     } else {
-      if (!state.othersPreds.has(p.match_id)) state.othersPreds.set(p.match_id, []);
+      if (!state.othersPreds.has(p.match_id)) {
+        state.othersPreds.set(p.match_id, []);
+      }
       state.othersPreds.get(p.match_id).push(p);
     }
   });
