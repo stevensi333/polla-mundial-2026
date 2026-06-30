@@ -1,4 +1,5 @@
 // =====================================================================
+// =====================================================================
 //  Polla Mundial 2026 — lógica de interfaz del usuario (Español / LTR)
 //  El navegador se conecta directamente con Supabase. La seguridad real
 //  de los datos depende de las políticas RLS configuradas en la base.
@@ -410,25 +411,66 @@ function wireMatchInputs(root) {
     const inputs = $$("input", row);
     const tag = $(".saved-tag", row);
     let timer;
-    inputs.forEach((inp) =>
+
+    async function savePrediction() {
+      const h = inputs[0].value;
+      const a = inputs[1].value;
+
+      if (h === "" || a === "") return;
+
+      const home_score = Math.max(0, Math.min(30, parseInt(h, 10)));
+      const away_score = Math.max(0, Math.min(30, parseInt(a, 10)));
+
+      const { error } = await sb
+        .from("predictions")
+        .upsert(
+          {
+            user_id: state.user.id,
+            match_id: id,
+            home_score,
+            away_score,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id,match_id" }
+        );
+
+      if (error) {
+        console.error("prediction save error:", error);
+        toast("No se pudo guardar. El partido puede estar cerrado.", true);
+        return;
+      }
+
+      state.myPreds.set(id, {
+        match_id: id,
+        user_id: state.user.id,
+        home_score,
+        away_score,
+      });
+
+      if (tag) {
+        tag.classList.add("show");
+        setTimeout(() => tag.classList.remove("show"), 1200);
+      }
+
+      maybeRevealNext(id);
+    }
+
+    inputs.forEach((inp) => {
       inp.addEventListener("input", () => {
         clearTimeout(timer);
-        timer = setTimeout(async () => {
-          const h = inputs[0].value, a = inputs[1].value;
-          if (h === "" || a === "") return;
-          const home_score = Math.max(0, Math.min(30, parseInt(h, 10)));
-          const away_score = Math.max(0, Math.min(30, parseInt(a, 10)));
-          const { error } = await sb
-            .from("predictions")
-            .upsert({ user_id: state.user.id, match_id: id, home_score, away_score, updated_at: new Date().toISOString() },
-              { onConflict: "user_id,match_id" });
-          if (error) { toast("Cerrado: el partido ya inició.", true); return; }
-          state.myPreds.set(id, { match_id: id, user_id: state.user.id, home_score, away_score });
-          tag.classList.add("show"); setTimeout(() => tag.classList.remove("show"), 1200);
-          maybeRevealNext(id);
-        }, 550);
-      })
-    );
+        timer = setTimeout(savePrediction, 350);
+      });
+
+      inp.addEventListener("change", () => {
+        clearTimeout(timer);
+        savePrediction();
+      });
+
+      inp.addEventListener("blur", () => {
+        clearTimeout(timer);
+        savePrediction();
+      });
+    });
   });
 }
 
@@ -505,19 +547,19 @@ function renderKnockouts() {
     ...Object.keys(byStage).filter((s) => !STAGE_ORDER.includes(s)),
   ];
   el.innerHTML =
-    `<p class="note">Predice el marcador y selecciona la selección que crees que <b>avanzará</b> en cada cruce. Puntos: marcador exacto 2 / ganador 1. Clasificado correcto: ${state.config?.points_advance ?? 2} puntos. Todo se bloquea cuando inicia cada partido.</p>` +
+    `<p class="note">Predice el marcador de cada partido. Marcador exacto = 2 puntos; acertar ganador o empate = 1 punto. Cada partido se bloquea cuando inicia.</p>` +
     stages.map((s) => {
-      const rows = byStage[s].map((m) => matchRow(m, { advance: true })).join("");
+      const rows = byStage[s].map((m) => matchRow(m)).join("");
       return `<div class="group">
-        <div class="group-head"><h3>${stageLabel(s)}</h3><span class="chev">▾</span></div>
-        <div class="group-body">${rows}</div>
-      </div>`;
+      <div class="group-head"><h3>${stageLabel(s)}</h3><span class="chev">▾</span></div>
+      <div class="group-body">${rows}</div>
+    </div>`;
     }).join("");
   $$(".group-head", el).forEach((h) =>
     h.addEventListener("click", () => h.parentElement.classList.toggle("collapsed"))
   );
   wireMatchInputs(el);
-  wireAdvance(el);
+
 }
 
 // =====================================================================
